@@ -14,7 +14,7 @@
 EL_UCHAR EL_Pthread_Pendst_Pool[EL_Pthread_Pendst_Pool_Size];
 EL_UCHAR EL_Pthread_Suspendst_Pool[EL_Pthread_Suspendst_Pool_Size];
 
-/* 内存池对齐方式 */
+/* 对象池对齐方式 */
 #if KPOOL_BYTE_ALIGNMENT == 16
 #define KPOOL_BYTE_ALIGNMENT_MASK    ( 0x000f )
 #elif KPOOL_BYTE_ALIGNMENT == 8

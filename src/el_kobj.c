@@ -1,4 +1,5 @@
 #include "el_kobj.h"
+#include "el_kheap.h"
 #include "el_kpool_static.h"
 
 #define KOBJ_PPOOL_BASE() 0
@@ -8,25 +9,28 @@
 		{\
 		  .Kobj_type = (EL_KOBJTYPE_T)kobj_type, .Kobj_size = sizeof(kobj_struct),\
 		  .Kobj_Basepool = (void *)kobj_ppool  , .Kobj_PoolSize = pool_size }
-		
+
 /* 内核对象基本信息 */
 static EL_kobj_info_t EL_Kobj_BasicInfoTable_t[] = {
-#if EL_USE_THREAD_PENDING
-	KOBJ_BASE_INFO_INIT( EL_KOBJ_TICKPENDING,TickPending_t,	KOBJ_PPOOL_BASE() , EL_USE_THREAD_PENDING 	),
+	KOBJ_BASE_INFO_INIT( EL_KOBJ_PTCB,		 EL_PTCB_T,		KOBJ_PPOOL_BASE() , THREAD_POOLSIZE 	),
+#if EL_USE_THREAD_PENDING && THREAD_PENDING_OBJ_STATIC
+	KOBJ_BASE_INFO_INIT( EL_KOBJ_TICKPENDING,TickPending_t,	KOBJ_PPOOL_BASE() , THREAD_PENDING_POOLSIZE 	),
 #endif
-#if EL_USE_THREAD_SUSPEND
+#if EL_USE_THREAD_SUSPEND && THREAD_SUSPEND_OBJ_STATIC
 	KOBJ_BASE_INFO_INIT( EL_KOBJ_SUSPEND,	 Suspend_t,		KOBJ_PPOOL_BASE() , THREAD_SUSPEND_POOLSIZE ),
 #endif
-#if EL_USE_MUTEXLOCK
+#if EL_USE_MUTEXLOCK   	  && MUTEXLOCK_OBJ_STATIC
 	KOBJ_BASE_INFO_INIT( EL_KOBJ_MUTEXLOCK,	 mutex_lock_t,	KOBJ_PPOOL_BASE() , MUTEXLOCK_POOLSIZE 		),
 #endif
-#if EL_USE_SPEEDPIPE
+#if EL_USE_SPEEDPIPE	  && SPEEDPIPE_OBJ_STATIC
 	KOBJ_BASE_INFO_INIT( EL_KOBJ_SPEEDPIPE,	 speed_pipe_t,	KOBJ_PPOOL_BASE() , SPEEDPIPE_POOLSIZE 		),
 #endif
-#if EL_USE_KTIMER 
+#if EL_USE_KTIMER 		  && KTIMER_OBJ_STATIC
 	KOBJ_BASE_INFO_INIT( EL_KOBJ_kTIMER,	 kTimer_t,		KOBJ_PPOOL_BASE() , KTIMER_POOLSIZE 		),
 #endif
 };
+
+void * heap_belong = NULL;
 
 /* 获取内核对象基本信息 */
 EL_RESULT_T ELOS_KobjStatisticsGet( EL_KOBJTYPE_T obj_type, EL_kobj_info_t * pobj )
@@ -47,15 +51,17 @@ EL_RESULT_T ELOS_KobjStatisticsGet( EL_KOBJTYPE_T obj_type, EL_kobj_info_t * pob
 	return EL_RESULT_OK;
 }
 
-/* 分配内核对象池 */
-static void * ELOS_RequestForPool(EL_KOBJTYPE_T kobj_type)
+/* 为内核对象分配对象池 */
+static void * ELOS_RequestForPoolWait(EL_KOBJTYPE_T kobj_type,EL_UINT ticks)
 {
 	EL_kobj_info_t * kobj_info;
 	if( kobj_type >= EL_KOBJ_TYPE_MAX ) return (void *)0;
 	
 	kobj_info = &(EL_Kobj_BasicInfoTable_t[ (EL_KOBJTYPE_T)kobj_type ]);
-	
-	
-	//return (pool != NULL)?EL_RESULT_OK:EL_RESULT_ERR;
+	if( kobj_info->Kobj_Basepool != NULL ){
+		return (void *)kobj_info->Kobj_Basepool;
+	}
+//	return (hp_alloc( (hcb_t *) heap_belong, kobj_info->Kobj_PoolSize ));
+	return NULL;
 }
 

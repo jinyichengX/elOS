@@ -1,6 +1,7 @@
 #include "el_kpool_static.h"
 #include "el_mutex_lock.h"
 #include "el_pthread.h"
+#include <stdint.h>
 #include <stdlib.h>
 
 /* 设置锁的所有者 */
@@ -216,6 +217,31 @@ EL_RESULT_T EL_MutexLock_Release(mutex_lock_t* lock)
 	OS_Exit_Critical_Check();
 	EL_Lite_Semaphore_Verhogen(&lock->Semaphore);
 
+	return EL_RESULT_OK;
+}
+/**********************************************************************
+ * 函数名称： EL_MutexLock_StatisticsTake
+ * 功能描述： 互斥锁状态统计
+ * 输入参数： lock : 已创建的锁对象
+ * 输出参数： 无
+ * 返 回 值： EL_RESULT_OK/EL_RESULT_ERR
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/02/14	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
+EL_RESULT_T EL_MutexLock_StatisticsTake(mutex_lock_t* lock, uint32_t *Owner, uint8_t * Lock_nesting,
+														uint8_t * Lock_attr)
+{
+	if ((lock == NULL) || (Owner == NULL) || (Lock_nesting == NULL) || (Lock_attr == NULL)){
+        return EL_RESULT_ERR;
+    }
+	
+	OS_Enter_Critical_Check();
+	*Owner = (uint32_t)((( mutex_lock_t * )lock)->Owner);
+	*Lock_attr = (uint8_t)((( mutex_lock_t * )lock)->Lock_attr);
+	*Lock_nesting = (uint8_t)((( mutex_lock_t * )lock)->Lock_nesting);
+	OS_Exit_Critical_Check();
+	
 	return EL_RESULT_OK;
 }
 /**********************************************************************

@@ -30,7 +30,34 @@
 #define EL_HIGHSPPEDPIPE_SPIN_PEND 1/* 高速队列自旋阻塞模式 */
 #endif
 /* 使用内核定时器 */
-#define EL_USE_KTIMER 1 		
+#define EL_USE_KTIMER 1 	
+
+/* 线程阻塞等待管理器是否静态分配 */
+#if EL_USE_THREAD_PENDING
+#define THREAD_PENDING_OBJ_STATIC 1
+#endif
+
+/* 线程挂起管理器是否静态分配 */
+#if EL_USE_THREAD_SUSPEND
+#define THREAD_SUSPEND_OBJ_STATIC 1
+#endif
+
+/* 互斥锁是否静态分配 */
+#if EL_USE_MUTEXLOCK
+#define MUTEXLOCK_OBJ_STATIC 1
+#endif
+
+/* 高速队列管理器是否静态分配 */
+#if EL_USE_SPEEDPIPE
+#define SPEEDPIPE_OBJ_STATIC 1
+#endif
+
+/* 内核定时器是否静态分配 */
+#if EL_USE_KTIMER
+#define KTIMER_OBJ_STATIC 1
+#endif
+
+#define THREAD_POOLSIZE	512			/* 线程控制块对象池大小 */
 
 #if EL_USE_THREAD_PENDING == 1
 #define THREAD_PENDING_POOLSIZE 512 /* 线程阻塞等待对象池大小 */

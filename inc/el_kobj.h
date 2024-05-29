@@ -8,6 +8,8 @@
 #include "el_ktmr.h"
 #include "elightOS_config.h"
 typedef enum{
+	EL_KOBJ_PTCB,
+	
 #if EL_USE_THREAD_PENDING
     EL_KOBJ_TICKPENDING,
 #endif
