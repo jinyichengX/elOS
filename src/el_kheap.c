@@ -19,7 +19,7 @@
 #define KHEAP_MNGSZ_MIN 						(KHEAP_MNGHEADSZ_MIN + KHEAP_MNGNODEESZ_MIN)
 #define KHEAP_ALLOC_FIX_HEAD_MIN 				(ALIGNED_UP(sizeof(struct usdinfo)))
 /* 最小分配单元 */
-#define KHEAP_ALLOCSZ_MIN						( KHEAP_ALLOC_FIX_HEAD_MIN + KHEAP_MNGNODEESZ_MIN )
+#define KHEAP_ALLOCSZ_MIN						( KHEAP_MNGNODEESZ_MIN )
 
 /* 设置分配方式 */
 #define KHEAP_ALLOCPATTERN_SET(phcb,md) 		((phcb)->strat.alloc_pttn = (AllocStrategy_t)md)
@@ -27,7 +27,7 @@
 #define KHEAP_ADDTO_FREELIST(phead,pnode) 		(list_add((pnode), (phead)))			/*设置为头节点*/
 #define KHEAP_ADDTO_FREELIST_TAIL(phead,pnode) 	(list_add_tail((pnode), (phead)))		/*设置为尾节点*/
 #define KHEAP_ADDTO_FREELIST_BTWN(pnew,pprev,pnext)	(__list_add((pnew),(pprev),(pnext)))/*中插*/
-/*删除待分配列表*/
+/*删除待分配列表中的节点*/
 #define KHEAP_DEL_FREELIST(pnode)				(list_del((pnode)))
 /*待分配列表是否为空*/
 #define KHEAP_FREELIST_EMPTY(phead) 			(list_empty((phead)))
@@ -40,14 +40,14 @@
 
 /* 堆内存的互斥访问 */
 #if HEAPLOCK_TYPE == mutex_lock_t
-#define KHEAP_LOCK_INIT(hcb)		 			//EL_Mutex_Lock_Init( &((hcb)->hp_lock), (mutex_lock_attr_t)MUTEX_LOCK_NESTING )
-#define KHEAP_LOCK(hcb, state)       			//EL_MutexLock_Take( &((hcb)->hp_lock) )
-#define KHEAP_LOCK_WAIT(hcb, state, tick)		1//EL_MutexLock_Take_Wait( &((hcb)->hp_lock),tick )
-#define KHEAP_UNLOCK(hcb, state)     			//EL_MutexLock_Release( &((hcb)->hp_lock) )
+#define KHEAP_LOCK_INIT(hcb)		 			EL_Mutex_Lock_Init( &((hcb)->hp_lock), (mutex_lock_attr_t)MUTEX_LOCK_NESTING )
+#define KHEAP_LOCK(hcb, state)       			EL_MutexLock_Take( &((hcb)->hp_lock) )
+#define KHEAP_LOCK_WAIT(hcb, state, tick)		EL_MutexLock_Take_Wait( &((hcb)->hp_lock),tick )
+#define KHEAP_UNLOCK(hcb, state)     			EL_MutexLock_Release( &((hcb)->hp_lock) )
 #else
 #define KHEAP_LOCK_INIT(hcb)		 			ELOS_SpinLockInit( &((hcb)->hp_lock) )
 #define KHEAP_LOCK(hcb, state)       			ELOS_SpinLock( &((hcb)->hp_lock) )
-#define KHEAP_LOCK_WAIT(hcb, state, tick)   	ELOS_SpinLock_Wait( &((hcb)->hp_lock),tick )
+#define KHEAP_LOCK_WAIT(hcb, state, tick)    	ELOS_SpinLock_Wait( &((hcb)->hp_lock),tick )
 #define KHEAP_UNLOCK(hcb, state)  				ELOS_SpinUnlock( &((hcb)->hp_lock) )
 #endif
 
@@ -56,7 +56,17 @@ static void * hp_alloc_ff( hcb_t * hcb, uint32_t size );
 static void * hp_alloc_wf( hcb_t * hcb, uint32_t size );
 
 #if KHEAP_NAME_EN == 1
-/* 设置堆名 */
+/**********************************************************************
+ * 函数名称： Kheap_name_set
+ * 功能描述： 设置堆名
+ * 输入参数： hcb : 已创建的堆管理对象
+             n : 堆名
+ * 输出参数： 无
+ * 返 回 值： 无
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 void Kheap_name_set( hcb_t * hcb,const char * n)
 {
 	int state;
@@ -64,24 +74,36 @@ void Kheap_name_set( hcb_t * hcb,const char * n)
 
 	KHEAP_LOCK(hcb, state);
 	memcpy( hcb->heap_name,n,HEAP_NAME_LEN );
+	hcb->heap_name[HEAP_NAME_LEN] = '\0';
 	KHEAP_UNLOCK(hcb, state);
 }
 #endif
 
-/* 堆初始化 */
+/**********************************************************************
+ * 函数名称： Kheap_Initialise
+ * 功能描述： 堆初始化
+ * 输入参数： surf : 内存堆首地址
+             bottom : 内存堆尾地址
+ * 输出参数： 无
+ * 返 回 值： 内存堆控制块指针
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 hcb_t * Kheap_Initialise(void * surf,void * bottom)
 {
 	hcb_t * hcb = NULL;
 	linknode_t * first_node;
 	uint32_t alg_surf,alg_bottom;
 	if(( surf == NULL ) || ( bottom == NULL ))
-		return (hcb_t *)0;
-
+	 return (hcb_t *)0;
+	if( KHEAP_MNGNODEESZ_MIN < KHEAP_ALLOC_FIX_HEAD_MIN)
+	 return (hcb_t *)0;
 	/* 检查是否满足最小堆空间 */
 	alg_surf   = ALIGNED_UP(( uint32_t )surf);
-	alg_bottom = ALIGNED_UP(( uint32_t )bottom);
+	alg_bottom = ALIGNED_DOWN(( uint32_t )bottom);
 	if( ( alg_bottom - alg_surf) < KHEAP_MNGSZ_MIN )
-		return (hcb_t *)0;
+	 return (hcb_t *)0;
 
 	/* 初始化堆控制块 */
 	hcb = (hcb_t *)alg_surf;
@@ -109,7 +131,17 @@ hcb_t * Kheap_Initialise(void * surf,void * bottom)
 	return hcb;
 }
 
-/* 最佳拟合（最小拟合） */
+/**********************************************************************
+ * 函数名称： hp_alloc_bf
+ * 功能描述： 最佳拟合（最小拟合）
+ * 输入参数： hcb : 已创建的堆管理对象
+             size : 需要分配的内存大小
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 static void * hp_alloc_bf( hcb_t * hcb, uint32_t size )
 {
 	linknode_t * fit_node = NULL;
@@ -128,7 +160,17 @@ static void * hp_alloc_bf( hcb_t * hcb, uint32_t size )
 	return (void *)fit_node;
 }
 
-/* 首次拟合 */
+/**********************************************************************
+ * 函数名称： hp_alloc_ff
+ * 功能描述： 首次拟合
+ * 输入参数： hcb : 已创建的堆管理对象
+             size : 需要分配的内存大小
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 static void * hp_alloc_ff( hcb_t * hcb, uint32_t size )
 {
 	linknode_t * fit_node = NULL;
@@ -142,7 +184,17 @@ static void * hp_alloc_ff( hcb_t * hcb, uint32_t size )
 	return (void *)fit_node;
 }
 
-/* 最差拟合（最大拟合） */
+/**********************************************************************
+ * 函数名称： hp_alloc_wf
+ * 功能描述： 最差拟合（最大拟合）
+ * 输入参数： hcb : 已创建的堆管理对象
+             size : 需要分配的内存大小
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 static void * hp_alloc_wf( hcb_t * hcb, uint32_t size )
 {
 	linknode_t * fit_node = NULL;
@@ -155,13 +207,23 @@ static void * hp_alloc_wf( hcb_t * hcb, uint32_t size )
 	 {
 	  fit_node = (linknode_t *)pos;
 	  temp_size = ((linknode_t *)pos)->size;
-	  if( temp_size == ((linknode_t *)pos)->size ) break;
+	  if( temp_size == size ) break;
 	 }
 	}
 	return (void *)fit_node;
 }
 
-/* 从指定的堆中分配内存（阻塞方式） */
+/**********************************************************************
+ * 函数名称： hp_alloc
+ * 功能描述： 从指定的堆中分配内存（阻塞方式）
+ * 输入参数： hcb : 已创建的堆管理对象
+             size : 需要分配的内存大小
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 void * hp_alloc( hcb_t * hcb, uint32_t size )
 {
 	char ptn, i;
@@ -175,8 +237,6 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 	if(KHEAP_FREELIST_EMPTY(&hcb->free_entry)) return NULL;
 	/* 保证所分配的内存是对齐的 */
 	needsz = ALIGNED_UP(size);
-	/* 记录所分配的内存大小 */
-	needsz += KHEAP_ALLOC_FIX_HEAD_MIN;
 	/* 是否满足最小分配单元 */
 	needsz = (needsz < KHEAP_ALLOCSZ_MIN)?(KHEAP_ALLOCSZ_MIN):(needsz);
 
@@ -202,7 +262,7 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 	}
 #endif
 	if( fit_node == NULL ) return NULL;
-	/* 查看此节点是否由剩余，合并到下一节点 */
+	/* 查看此节点是否有剩余，合并到下一节点 */
 
 	leftsz = fit_node->size - needsz;
 	if(leftsz >= KHEAP_MNGNODEESZ_MIN){/*够生成一个节点*/
@@ -212,7 +272,10 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 	 /* 替换原空闲节点 */
 	 KHEAP_REPLACE_NODE(&bk, &next_node->hpnode);
 	 next_node->size = leftsz;
-	}else needsz = fit_node->size;
+	}else {
+	 KHEAP_DEL_FREELIST( (struct list_head *)fit_node );
+	 needsz = fit_node->size;
+	}
 	/* 记录已分配的内存块大小 */
 	alloc = (struct usdinfo *)fit_node;
 	alloc->usdsz = needsz;
@@ -222,7 +285,18 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 	return (void *)(((void *)fit_node)+KHEAP_ALLOC_FIX_HEAD_MIN);
 }
 
-/* 阻塞等待分配内存 */
+/**********************************************************************
+ * 函数名称： hp_alloc_wait
+ * 功能描述： 阻塞等待分配内存
+ * 输入参数： hcb : 已创建的堆管理对象
+             size : 需要分配的内存大小
+			 tick : 等待时长
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 void * hp_alloc_wait( hcb_t * hcb, uint32_t size ,uint32_t tick)
 {
 	int state;
@@ -238,7 +312,17 @@ void * hp_alloc_wait( hcb_t * hcb, uint32_t size ,uint32_t tick)
 	return fit_addr;
 }
 
-/* 分配指定大小的内存块并初始化为零 */
+/**********************************************************************
+ * 函数名称： hp_calloc
+ * 功能描述： 阻塞等待分配内存并清理
+ * 输入参数： hcb : 已创建的堆管理对象
+             size : 需要分配的内存大小
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 void * hp_calloc( hcb_t * hcb, uint32_t size )
 {
 	void * addr = NULL;
@@ -251,7 +335,18 @@ void * hp_calloc( hcb_t * hcb, uint32_t size )
 	return addr;
 }
 
-/* 查找已分配节点的邻居待分配节点 */
+/**********************************************************************
+ * 函数名称： hp_searchNeighNode
+ * 功能描述： 查找已分配节点的邻居待分配节点
+ * 输入参数： hcb : 已创建的堆管理对象
+             fst_addr : 被释放的内存块首地址
+			 neigh : 相邻空闲内存块节点
+ * 输出参数： 无
+ * 返 回 值： 无
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 static void hp_searchNeighNode(hcb_t * hcb, void * fst_addr,\
 								struct list_head ** neigh)
 {
@@ -275,7 +370,17 @@ static void hp_searchNeighNode(hcb_t * hcb, void * fst_addr,\
 	return ;
 }
 
-/* 从指定的堆中释放内存（阻塞方式） */
+/**********************************************************************
+ * 函数名称： hp_free
+ * 功能描述： 从指定的堆中释放内存
+ * 输入参数： hcb : 已创建的堆管理对象
+             fst_addr : 被释放的内存块首地址
+ * 输出参数： 无
+ * 返 回 值： 无
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 void hp_free( hcb_t * hcb, void * fst_addr )
 {
 	int state;
@@ -286,11 +391,11 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	if(( hcb == NULL ) || (fst_addr == NULL)) return;
 
 	KHEAP_LOCK(hcb, state);
-	/* 获取需要释放的内存块大小（总） */
-	size = *((uint32_t *)(fst_addr - KHEAP_ALLOC_FIX_HEAD_MIN));
 	/*被释放的内存块节点指针*/
-	free_node = (linknode_t *)fst_addr;
-	hp_searchNeighNode(hcb,fst_addr,&neigh_node[0]);
+	free_node = (linknode_t *)(fst_addr - KHEAP_ALLOC_FIX_HEAD_MIN);
+	/* 获取需要释放的内存块大小（总） */
+	size = *( (uint32_t *)free_node );
+	hp_searchNeighNode(hcb,fst_addr,neigh_node);
 
 	/* 如果有前后空闲节点 */
 	if( neigh_node[0] && neigh_node[1] ){
@@ -305,37 +410,46 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	   /*删除后节点*/
 	    KHEAP_DEL_FREELIST(neigh_node[1]);
 	  }
-	 }else{
+	 }
+	 else{
 	  /*是否能与后空闲节点合并*/
-	  if( (fst_addr + size) == (void *)neigh_node[1] ){
+	  if( ((void *)free_node + size) == (void *)neigh_node[1] ){
 	   bk.next = neigh_node[1]->next;
 	   bk.prev = neigh_node[1]->prev;
 	   KHEAP_REPLACE_NODE(&bk, &free_node->hpnode);
 	   free_node->size = size + ((linknode_t *)neigh_node[1])->size;
-	  }else{
+	  }
+	  else{
 	   free_node->size = size;
 	   KHEAP_ADDTO_FREELIST_BTWN(&free_node->hpnode,neigh_node[0],neigh_node[1]);
 	  }
 	 }
-	}else if( neigh_node[0] ){/* 如果只有前空闲节点 */
+	}
+	else if( neigh_node[0] ){/* 如果只有前空闲节点 */
 	/* 是否能与前空闲节点合并 */
 	 if( (void *)((void *)neigh_node[0] + ((linknode_t *)neigh_node[0])->size)\
 		== (void *)free_node ) {/*可以合并*/
 	  ((linknode_t *)neigh_node[0])->size += size;
-	 }else{
-	   KHEAP_ADDTO_FREELIST_TAIL(&hcb->free_entry,&free_node->hpnode);	/*尾插*/
 	 }
-	}else if( neigh_node[1] ){/* 如果只有后空闲节点 */
+	 else{
+	   KHEAP_ADDTO_FREELIST_TAIL(&hcb->free_entry,&free_node->hpnode);	/*尾插*/
+	   free_node->size = size;
+	 }
+	}
+	else if( neigh_node[1] ){/* 如果只有后空闲节点 */
 	 /* 是否能与后空闲节点合并 */
-	 if( (fst_addr + size) == (void *)neigh_node[1] ){/* 可以合并 */
+	 if( ((void *)free_node + size) == (void *)neigh_node[1] ){/* 可以合并 */
 	  bk.next = neigh_node[1]->next;
 	  bk.prev = neigh_node[1]->prev;
 	  KHEAP_REPLACE_NODE(&bk, &free_node->hpnode);/*替换原节点*/
 	  free_node->size = size + ((linknode_t *)neigh_node[1])->size;
-	 }else{/* 不能合并 */
-	  KHEAP_ADDTO_FREELIST(&hcb->free_entry,&free_node->hpnode);/* 头插 */
 	 }
-	}else if( (!neigh_node[0]) && (!neigh_node[1]) ){/* 如果无前后空闲节点 */
+	 else{/* 不能合并 */
+	  KHEAP_ADDTO_FREELIST(&hcb->free_entry,&free_node->hpnode);/* 头插 */
+	  free_node->size = size;
+	 }
+	}
+	else if( (!neigh_node[0]) && (!neigh_node[1]) ){/* 如果无前后空闲节点 */
 	 /* 自成空闲节点 */
 	 KHEAP_ADDTO_FREELIST(&hcb->free_entry,&free_node->hpnode);
 	 free_node->size = size;
@@ -344,7 +458,18 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	return;
 }
 
-/* 从指定堆中重分配内存 */
+/**********************************************************************
+ * 函数名称： hp_realloc
+ * 功能描述： 从指定堆中重分配内存
+ * 输入参数： hcb : 已创建的堆管理对象
+             fst_addr : 需要被重分配的内存块首地址
+             size : 需要重新分配的内存大小
+ * 输出参数： 无
+ * 返 回 值： 分配出的内存首地址
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 void * hp_realloc( hcb_t * hcb, void * fst_addr, uint32_t size )
 {
 	int _orgsz,state;
@@ -377,7 +502,16 @@ void * hp_realloc( hcb_t * hcb, void * fst_addr, uint32_t size )
 }
 
 #if KHEAP_USAGE_STATISTICS_EN == 1
-/* 统计内存使用率 */
+/**********************************************************************
+ * 函数名称： hp_CalcUsage
+ * 功能描述： 统计内存使用率
+ * 输入参数： hcb : 已创建的堆管理对象
+ * 输出参数： 无
+ * 返 回 值： 无
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 static void hp_CalcUsage(hcb_t *hcb)
 {
 	int state;
@@ -405,7 +539,21 @@ static void hp_CalcUsage(hcb_t *hcb)
 }
 #endif
 
-/* 堆内存状态统计 */
+/**********************************************************************
+ * 函数名称： hp_StatisticsTake
+ * 功能描述： 堆内存状态统计
+ * 输入参数： hcb : 已创建的堆管理对象
+             heap_size : 内存堆总大小
+             start_addr : 内存堆起始地址
+             strat : 内存堆分配策略
+             usg1 : 内存堆使用率（百分比整数部分）
+			 usg2 : 内存堆使用率（百分比两位小数部分）
+ * 输出参数： 无
+ * 返 回 值： EL_RESULT_OK/EL_RESULT_ERR
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/05/29	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
 EL_RESULT_T hp_StatisticsTake( hcb_t * hcb, uint32_t *heap_size, uint32_t * start_addr,
 								uint8_t * strat, uint8_t * usg1, uint8_t * usg2)
 {
@@ -421,4 +569,3 @@ EL_RESULT_T hp_StatisticsTake( hcb_t * hcb, uint32_t *heap_size, uint32_t * star
 #endif
 	return EL_RESULT_OK;
 }
-

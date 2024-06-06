@@ -144,6 +144,23 @@ EL_RESULT_T EL_MutexLock_Take(mutex_lock_t* lock)
 
 	return EL_RESULT_OK;
 }
+
+/**********************************************************************
+ * 函数名称： EL_MutexLock_Take_Wait
+ * 功能描述： 获取互斥锁
+ * 输入参数： lock : 已创建的锁对象
+			  tick : 超时等待时长
+ * 输出参数： 无
+ * 返 回 值： EL_RESULT_OK/EL_RESULT_ERR
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/02/14	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
+EL_RESULT_T EL_MutexLock_Take_Wait(mutex_lock_t* lock, EL_UINT tick)
+{
+	
+}
+
 /**********************************************************************
  * 函数名称： EL_Lite_Semaphore_Verhogen
  * 功能描述： 释放信号量

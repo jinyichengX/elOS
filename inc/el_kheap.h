@@ -5,6 +5,7 @@
 #include "el_mutex_lock.h"
 #include "el_klist.h"
 #include "el_type.h"
+
 typedef struct stHeapControlBlock hcb_t;
 
 /*配置相关*/
@@ -49,7 +50,7 @@ typedef struct stHeapControlBlock{
 	char heap_name[HEAP_NAME_LEN + 1];	/* 堆内存名 */
 #endif
 	alloc_stg_t strat;					/* 分配策略 */
-	HEAPLOCK_TYPE hp_lock;			/* 访问锁 */
+	HEAPLOCK_TYPE hp_lock;				/* 访问锁 */
 #if KHEAP_USAGE_STATISTICS_EN == 1
 	/* 例1：usage_int = 1 , usage_flo = 9 --------->1.09%  */
 	/* 例2：usage_int = 23, usage_flo = 68--------->23.68% */

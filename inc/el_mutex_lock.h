@@ -42,6 +42,7 @@ typedef struct EL_OS_MUTEX_LOCK_STRUCT {
 extern void EL_Mutex_Lock_Init(mutex_lock_t* lock,\
 					mutex_lock_attr_t lock_attr);
 extern EL_RESULT_T EL_MutexLock_Take(mutex_lock_t* lock);
+extern EL_RESULT_T EL_MutexLock_Take_Wait(mutex_lock_t* lock, EL_UINT tick);
 extern EL_RESULT_T EL_MutexLock_Release(mutex_lock_t* lock);
 extern EL_RESULT_T EL_MutexLock_Deinit(mutex_lock_t* lock);
 #endif

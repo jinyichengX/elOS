@@ -2,6 +2,7 @@
 #define EL_KTMR_H
 
 #include "el_klist.h"
+#include "el_avl.h"
 #include "el_type.h"
 #include "el_pthread.h"
 
