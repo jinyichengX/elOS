@@ -40,10 +40,10 @@
 
 /* 堆内存的互斥访问 */
 #if HEAPLOCK_TYPE == mutex_lock_t
-#define KHEAP_LOCK_INIT(hcb)		 			EL_Mutex_Lock_Init( &((hcb)->hp_lock), (mutex_lock_attr_t)MUTEX_LOCK_NESTING )
-#define KHEAP_LOCK(hcb, state)       			EL_MutexLock_Take( &((hcb)->hp_lock) )
-#define KHEAP_LOCK_WAIT(hcb, state, tick)		EL_MutexLock_Take_Wait( &((hcb)->hp_lock),tick )
-#define KHEAP_UNLOCK(hcb, state)     			EL_MutexLock_Release( &((hcb)->hp_lock) )
+#define KHEAP_LOCK_INIT(hcb)		 			//EL_Mutex_Lock_Init( &((hcb)->hp_lock), (mutex_lock_attr_t)MUTEX_LOCK_NESTING )
+#define KHEAP_LOCK(hcb, state)       			//EL_MutexLock_Take( &((hcb)->hp_lock) )
+#define KHEAP_LOCK_WAIT(hcb, state, tick)		tick?0:1//EL_MutexLock_Take_Wait( &((hcb)->hp_lock),tick )
+#define KHEAP_UNLOCK(hcb, state)     			//EL_MutexLock_Release( &((hcb)->hp_lock) )
 #else
 #define KHEAP_LOCK_INIT(hcb)		 			ELOS_SpinLockInit( &((hcb)->hp_lock) )
 #define KHEAP_LOCK(hcb, state)       			ELOS_SpinLock( &((hcb)->hp_lock) )
@@ -118,10 +118,11 @@ hcb_t * Kheap_Initialise(void * surf,void * bottom)
 	hcb->strat.php_alloc[FIRST_FIT] = hp_alloc_ff;
 	hcb->strat.php_alloc[WORST_FIT] = hp_alloc_wf;
 	KHEAP_ALLOCPATTERN_SET(hcb,BEST_FIT);
-	/* 初始化堆节点 */
+	/* 初始化第一个空闲节点 */
 	first_node = (linknode_t *)(alg_surf+KHEAP_MNGHEADSZ_MIN);
 	first_node->size = hcb->valid_size;
 	INIT_LIST_HEAD(&first_node->hpnode);
+	INIT_LIST_HEAD(&hcb->free_entry);
 	KHEAP_ADDTO_FREELIST(&first_node->hpnode,&hcb->free_entry);
 #if KHEAP_NAME_EN == 1
 	Kheap_name_set(hcb,"kheap");
@@ -177,7 +178,8 @@ static void * hp_alloc_ff( hcb_t * hcb, uint32_t size )
 	struct list_head *pos,*next;
 	KHEAP_TRAVERSAL_FREELIST( pos, next, &hcb->free_entry )
 	{
-	 if( ((linknode_t *)pos)->size >= size ){
+	 if( ((linknode_t *)pos)->size >= size )
+     {
 	  fit_node = (linknode_t *)pos;break;
 	 }
 	}
@@ -237,6 +239,7 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 	if(KHEAP_FREELIST_EMPTY(&hcb->free_entry)) return NULL;
 	/* 保证所分配的内存是对齐的 */
 	needsz = ALIGNED_UP(size);
+	needsz += KHEAP_ALLOC_FIX_HEAD_MIN;
 	/* 是否满足最小分配单元 */
 	needsz = (needsz < KHEAP_ALLOCSZ_MIN)?(KHEAP_ALLOCSZ_MIN):(needsz);
 
@@ -266,13 +269,14 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 
 	leftsz = fit_node->size - needsz;
 	if(leftsz >= KHEAP_MNGNODEESZ_MIN){/*够生成一个节点*/
-	 next_node = (linknode_t *)((void *)fit_node + needsz);
+	 next_node = (linknode_t *)((char *)fit_node + needsz);
 	 bk.next = fit_node->hpnode.next;
 	 bk.prev = fit_node->hpnode.prev;
 	 /* 替换原空闲节点 */
 	 KHEAP_REPLACE_NODE(&bk, &next_node->hpnode);
 	 next_node->size = leftsz;
-	}else {
+	}
+	else{
 	 KHEAP_DEL_FREELIST( (struct list_head *)fit_node );
 	 needsz = fit_node->size;
 	}
@@ -282,7 +286,7 @@ void * hp_alloc( hcb_t * hcb, uint32_t size )
 
 	KHEAP_UNLOCK(hcb, state);
 
-	return (void *)(((void *)fit_node)+KHEAP_ALLOC_FIX_HEAD_MIN);
+	return (void *)(((char *)fit_node)+KHEAP_ALLOC_FIX_HEAD_MIN);
 }
 
 /**********************************************************************
@@ -305,7 +309,7 @@ void * hp_alloc_wait( hcb_t * hcb, uint32_t size ,uint32_t tick)
 	if( KHEAP_LOCK_WAIT(hcb, state, tick) ){
 	 return NULL;
 	}
-	fit_addr = hp_alloc(  hcb, size );
+	fit_addr = hp_alloc( hcb, size );
 
 	KHEAP_UNLOCK(hcb, state);
 
@@ -392,7 +396,7 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 
 	KHEAP_LOCK(hcb, state);
 	/*被释放的内存块节点指针*/
-	free_node = (linknode_t *)(fst_addr - KHEAP_ALLOC_FIX_HEAD_MIN);
+	free_node = (linknode_t *)((char *)fst_addr - KHEAP_ALLOC_FIX_HEAD_MIN);
 	/* 获取需要释放的内存块大小（总） */
 	size = *( (uint32_t *)free_node );
 	hp_searchNeighNode(hcb,fst_addr,neigh_node);
@@ -400,11 +404,11 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	/* 如果有前后空闲节点 */
 	if( neigh_node[0] && neigh_node[1] ){
 	 /* 是否能与前空闲节点合并 */
-	 if( ((void *)neigh_node[0] + ((linknode_t *)neigh_node[0])->size)\
+	 if( ((char *)neigh_node[0] + ((linknode_t *)neigh_node[0])->size)\
 					== (void *)free_node ) {/*可以合并*/
 	  ((linknode_t *)neigh_node[0])->size += size;
 	  /*再看是否可以和后空闲节点合并*/
-	  if( (((linknode_t *)neigh_node[0])->size + (void *)neigh_node[0])\
+	  if( (((linknode_t *)neigh_node[0])->size + (char *)neigh_node[0])\
 			== (void *)neigh_node[1] ){
 	   ((linknode_t *)neigh_node[0])->size += ((linknode_t *)neigh_node[1])->size;
 	   /*删除后节点*/
@@ -413,7 +417,7 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	 }
 	 else{
 	  /*是否能与后空闲节点合并*/
-	  if( ((void *)free_node + size) == (void *)neigh_node[1] ){
+	  if( (void *)((char *)free_node + size) == (void *)neigh_node[1] ){
 	   bk.next = neigh_node[1]->next;
 	   bk.prev = neigh_node[1]->prev;
 	   KHEAP_REPLACE_NODE(&bk, &free_node->hpnode);
@@ -427,7 +431,7 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	}
 	else if( neigh_node[0] ){/* 如果只有前空闲节点 */
 	/* 是否能与前空闲节点合并 */
-	 if( (void *)((void *)neigh_node[0] + ((linknode_t *)neigh_node[0])->size)\
+	 if( (void *)((char *)neigh_node[0] + ((linknode_t *)neigh_node[0])->size)\
 		== (void *)free_node ) {/*可以合并*/
 	  ((linknode_t *)neigh_node[0])->size += size;
 	 }
@@ -438,7 +442,7 @@ void hp_free( hcb_t * hcb, void * fst_addr )
 	}
 	else if( neigh_node[1] ){/* 如果只有后空闲节点 */
 	 /* 是否能与后空闲节点合并 */
-	 if( ((void *)free_node + size) == (void *)neigh_node[1] ){/* 可以合并 */
+	 if( (void *)((char *)free_node + size) == (void *)neigh_node[1] ){/* 可以合并 */
 	  bk.next = neigh_node[1]->next;
 	  bk.prev = neigh_node[1]->prev;
 	  KHEAP_REPLACE_NODE(&bk, &free_node->hpnode);/*替换原节点*/
@@ -482,12 +486,12 @@ void * hp_realloc( hcb_t * hcb, void * fst_addr, uint32_t size )
 	pidx   = ( linknode_t * )fst_addr;
 	_orgsz = pidx->size;
   	/* 如果新大小和旧大小相同，无需操作 */
-    if (size == _orgsz) {
+    if (size == _orgsz){
      KHEAP_UNLOCK(hcb, state);
      return fst_addr;
     }
     new_addr = hp_alloc(hcb, size);
-    if (new_addr == NULL) {
+    if (new_addr == NULL){
      /* 如果分配失败，解锁并返回NULL */
      KHEAP_UNLOCK(hcb, state);
      return NULL;

@@ -14,6 +14,7 @@ typedef struct stAVLTree
     avl_node_t * root;
     uint8_t node_off;
     compare vcomp;
+    uint32_t count;
 }avl_t;
 
 typedef struct stAVLTreeNode
@@ -43,6 +44,7 @@ extern avl_node_t * avl_find_last_node(avl_t * tree);
 extern avl_node_t * avl_next_node(avl_node_t * node);
 extern avl_node_t * avl_prev_node(avl_node_t * node);
 extern avl_node_t * avl_node_add(avl_node_t * node, avl_t * tree);
+extern avl_node_t * avl_node_delete(avl_node_t * node,avl_t * tree);
 extern avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree);
 extern void avl_subtree_print(avl_node_t *root);
 extern void avl_tree_print(avl_t * tree);

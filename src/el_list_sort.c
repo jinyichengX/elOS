@@ -2,13 +2,13 @@
 #include "el_pthread.h"
 #include "el_type.h"
 
-/* 列表节点升序插入 */
+/* 鍒楄〃鑺傜偣鍗囧簭鎻掑叆 */
 void EL_Klist_InsertSorted(struct list_head *new, struct list_head *head)
 {
     EL_UINT tick,overtick;
 
     struct list_head *head_pos = head->next;
-    /* 获取系统时基 */
+    /* 鑾峰彇绯荤粺鏃跺熀 */
     tick = ((TickPending_t *)new)->TickSuspend_Count;
     overtick = ((TickPending_t *)new)->TickSuspend_OverFlowCount;
 

@@ -18,6 +18,8 @@ typedef struct {
     AllocFunc alloc;
     FreeFunc free;
     GetSizeFunc get_size;
-} MemManager;
+} mem_t;
 
+extern void * el_mem_alloc(mem_t * mem,uint32_t size);
+extern void * el_mem_free(mem_t * mem,void * blk);
 #endif

@@ -27,6 +27,7 @@ typedef struct stHeapControlBlock hcb_t;
 //// 可以这样使用特化的宏：
 //#define HEAP_TYPE(KERNEL,KOBJ_POOL) HEAP_TYPE_##KERNEL##KOBJ_POOL
 
+/* 拟合策略 */
 typedef enum {
 	BEST_FIT,							/* 最佳拟合 */
 	FIRST_FIT,							/* 首次拟合 */

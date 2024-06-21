@@ -4,7 +4,7 @@
 #include "el_pthread.h"
 #include "el_debug.h"
 #include "el_type.h"
-
+#include "el_klist.h"
 /* 锁属性 */
 #define MUTEX_LOCK_NORMAL  0X00	/* 普通锁 */
 #define MUTEX_LOCK_NESTING 0X01	/* 递归锁 */
@@ -24,7 +24,7 @@ typedef enum MUTEX_LOCK_ATTRIBUTE{
 typedef struct EL_OS_SEMAPHORE_STRUCT{
     EL_UCHAR Sem_value;	/* 计数量 */
 	EL_UCHAR Max_value;	/* 最大计数 */
-	LIST_HEAD Waiters;	/* 等待列表 */
+	struct list_head Waiters;	/* 等待列表 */
 }lite_sem_t;
 
 /* 互斥锁 */

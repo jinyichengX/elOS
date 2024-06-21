@@ -70,14 +70,15 @@ EL_RESULT_T EL_Lite_Semaphore_Proberen(lite_sem_t * sem,\
 	while(sem->Sem_value == 0)
 	{
 		ASSERT(Cur_ptcb->pthread_state != EL_PTHREAD_SUSPEND);
-		/* 将线程放入等待队列 */
-		list_add_tail(&EL_GET_CUR_PTHREAD()->pthread_node,\
-					&sem->Waiters);
+
 		/* 挂起当前线程 */
 		if (NULL == (SuspendObj = (Suspend_t *)malloc(SZ_Suspend_t))){
 			OS_Exit_Critical_Check();
 			return EL_RESULT_ERR;
 		}
+		/* 将线程放入等待队列 */
+		list_add_tail(&EL_GET_CUR_PTHREAD()->pthread_node,\
+					&sem->Waiters);
 		SuspendObj->Pthread = Cur_ptcb;
 		SuspendObj->PendingType = (void *)0;
 		Cur_ptcb->block_holder = (void *)SuspendObj;

@@ -3,7 +3,8 @@
 #include "el_debug.h"
 #include "el_list_sort.h"
 #include <string.h>
-
+#include "el_ktmr.h"
+#include "kparam.h"
 /* 内核列表 */
 LIST_HEAD_CREAT(*KERNEL_LIST_HEAD[EL_PTHREAD_STATUS_COUNT]);/* 内核列表指针 */
 LIST_HEAD_CREAT(PRIO_LISTS[EL_MAX_LEVEL_OF_PTHREAD_PRIO]);/* 线程就绪列表00 */
@@ -12,15 +13,15 @@ LIST_HEAD_CREAT(PthreadToDeleteListHead);/* 线程删除列表 */
 LIST_HEAD_CREAT(PendListHead);/* 线程阻塞延时列表02 */
 
 /* 内核相关宏 */
-#define SZ_TickPending_t sizeof(TickPending_t)
-#define PTHREAD_STATUS_SET(PRIV_PSP,STATE) (PTCB_BASE(PRIV_PSP)->pthread_state = STATE)/* 设置线程状态(由psp) */
-#define PTHREAD_STATUS_GET(PRIV_PSP) (PTCB_BASE(PRIV_PSP)->pthread_state)/* 获取线程状态(由psp) */
+#define SZ_TickPending_t 								(sizeof(TickPending_t))
+#define PTHREAD_STATUS_SET(PRIV_PSP,STATE) 				(PTCB_BASE(PRIV_PSP)->pthread_state = STATE)/* 设置线程状态(由psp) */
+#define PTHREAD_STATUS_GET(PRIV_PSP) 					(PTCB_BASE(PRIV_PSP)->pthread_state)/* 获取线程状态(由psp) */
 
-#define PTHREAD_NEXT_RELEASE_TICK_GET(TSCB) (((TickPending_t *)TSCB.next)->TickSuspend_Count)/* 获取计时tick */
-#define PTHREAD_NEXT_RELEASE_OVERFLOW_TICK_GET(TSCB) (((TickPending_t *)TSCB.next)->TickSuspend_OverFlowCount)/* 获取溢出tick */
-#define PTHREAD_NEXT_RELEASE_PRIO_GET(TSCB) ((((TickPending_t *)TSCB.next)->Pthread)->pthread_prio)/* 获取阻塞头的优先级 */
-#define PTHREAD_NEXT_RELEASE_PTCB_NODE_GET(TSCB) ((((TickPending_t *)TSCB.next)->Pthread)->pthread_node)/* 获取阻塞头的线程node */
-#define OS_SCHED_DONOTHING()
+#define PTHREAD_NEXT_RELEASE_TICK_GET(TSCB) 			(((TickPending_t *)TSCB.next)->TickSuspend_Count)/* 获取计时tick */
+#define PTHREAD_NEXT_RELEASE_OVERFLOW_TICK_GET(TSCB) 	(((TickPending_t *)TSCB.next)->TickSuspend_OverFlowCount)/* 获取溢出tick */
+#define PTHREAD_NEXT_RELEASE_PRIO_GET(TSCB) 			((((TickPending_t *)TSCB.next)->Pthread)->pthread_prio)/* 获取阻塞头的优先级 */
+#define PTHREAD_NEXT_RELEASE_PTCB_NODE_GET(TSCB) 		((((TickPending_t *)TSCB.next)->Pthread)->pthread_node)/* 获取阻塞头的线程node */
+#define OS_SCHED_DONOTHING()							do{;}while(0);
 
 /* 内核变量 */
 EL_PORT_STACK_TYPE g_psp;/* 私有psp的值 */
@@ -114,6 +115,10 @@ void EL_OS_Initialise(void)
 		EL_Pthread_Pendst_Pool_Size,SZ_TickPend_t);
 	EL_stKpoolInitialise(EL_Pthread_Suspendst_Pool,\
 		EL_Pthread_Suspendst_Pool_Size,SZ_Suspend_t);
+	/* 内存堆初始化 */
+		
+	/* 内核定时器初始化 */
+	ktmr_module_init();
 	/* 内核变量初始化 */
 	g_critical_nesting = 0;
 }
@@ -134,13 +139,17 @@ void EL_OS_Initialise(void)
 EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,void *pthread_entry,\
 	EL_UINT pthread_stackSz,EL_PTHREAD_PRIO_TYPE prio)
 {
-	EL_UINT NeededSize = MIN_PTHREAD_STACK_SIZE+pthread_stackSz;
-    /* 初始化线程名 */
-    for(int i = 0;i<(EL_PTHREAD_NAME_MAX_LEN<strlen(name)?EL_PTHREAD_NAME_MAX_LEN:strlen(name));i++)
-		ptcb->pthread_name[i] = name[i];
-    /* 分配线程栈 */
 	EL_STACK_TYPE *PSTACK,*PSTACK_TOP = NULL;
+	EL_UINT NeededSize = MIN_PTHREAD_STACK_SIZE+pthread_stackSz;
 	
+	if(( ptcb == NULL )||( pthread_entry == NULL )||(pthread_stackSz <= MIN_PTHREAD_STACK_SIZE))
+		return EL_RESULT_ERR;
+    /* 初始化线程名 */
+	if(name){
+		for(int i = 0;i<(EL_PTHREAD_NAME_MAX_LEN<strlen(name)?EL_PTHREAD_NAME_MAX_LEN:strlen(name));i++)
+			ptcb->pthread_name[i] = name[i];
+	}
+    /* 分配线程栈 */
 	OS_Enter_Critical_Check();
     PSTACK = (EL_STACK_TYPE *)malloc(NeededSize);
 	if(NULL == PSTACK)	return EL_RESULT_ERR;
@@ -282,9 +291,11 @@ void EL_TickIncCount(void)
  * 修改日期        版本号     修改人	      修改内容
  * -----------------------------------------------
  * 2024/02/05	    V1.0	  jinyicheng	      创建
+ * 2024/06/11		V1.0	  jinyicheng		  添加线程等待同步量超时返回
  ***********************************************************************/
 void EL_Pthread_Pend_Release(void)
 {
+	TickPending_t * container;
 	if(list_empty(&PendListHead)) return;
 	/* 所有阻塞超时线程全部放入对应优先级的就绪列表 */
 	while((((g_TickSuspend_OverFlowCount==PTHREAD_NEXT_RELEASE_OVERFLOW_TICK_GET(PendListHead))&&\
@@ -293,11 +304,17 @@ void EL_Pthread_Pend_Release(void)
 		&&(!list_empty(&PendListHead)))
 	{
 		void *p_NodeToDel = (void *)PendListHead.next;
+		container = (TickPending_t *)p_NodeToDel;
+		if( container->PendType != EVENT_TYPE_SLEEP )
+		{
+			/* 等待同步量超时 */
+			*(container->result) = (int)EL_RESULT_ERR;
+		}
 		/* 设置为就绪态 */
 		((TickPending_t *)PendListHead.next)->Pthread->pthread_state = EL_PTHREAD_READY;
 		/* 放入就绪列表 */
 		list_add_tail(&PTHREAD_NEXT_RELEASE_PTCB_NODE_GET(PendListHead),\
-					&PRIO_LISTS[PTHREAD_NEXT_RELEASE_PRIO_GET(PendListHead)]);
+		&PRIO_LISTS[PTHREAD_NEXT_RELEASE_PRIO_GET(PendListHead)]);
 		/* 删除并释放阻塞头 */
 		list_del(PendListHead.next);
 		free(p_NodeToDel);
@@ -335,11 +352,12 @@ void EL_Pthread_Sleep(EL_UINT TickToDelay)
 	PendingObj->TickSuspend_OverFlowCount = temp_overflow_tick;
 	PendingObj->Pthread = (EL_PTCB_T *)(PTCB_BASE(g_pthread_sp));
 	PendingObj->Pthread->block_holder = (void *)(&PendingObj->TickPending_Node);
-	
+	PendingObj->PendType = EVENT_TYPE_SLEEP;
 	/* 切换状态并放入阻塞列表 */
 	EL_Klist_InsertSorted(&PendingObj->TickPending_Node,KERNEL_LIST_HEAD[EL_PTHREAD_PENDING]);/* 升序放入阻塞延时列表 */
-	OS_Exit_Critical_Check();
 	PTHREAD_STATE_SET(PendingObj->Pthread,EL_PTHREAD_PENDING);
+	OS_Exit_Critical_Check();
+	
 	/* 执行一次线程切换 */
 	PORT_PendSV_Suspend();
 }
@@ -508,6 +526,7 @@ EL_PTCB_T* EL_Pthread_DelSelf(EL_PTCB_T *PthreadToDel)
 void EL_Pthread_Priority_Set(EL_PTCB_T *PthreadToModify,EL_PTHREAD_PRIO_TYPE new_prio)
 {
 	EL_PTCB_T *ptcb = EL_GET_CUR_PTHREAD();
+	if( PthreadToModify == NULL ) return;
 	if(ptcb->pthread_prio == new_prio) return;
 	
 	OS_Enter_Critical_Check();/* 避免多个线程使用删除列表 */
@@ -528,3 +547,84 @@ void EL_Pthread_Priority_Set(EL_PTCB_T *PthreadToModify,EL_PTHREAD_PRIO_TYPE new
 	return;
 }
 
+/**********************************************************************
+ * 函数名称： EL_Pthread_EventWait
+ * 功能描述： 线程等待事件
+ * 输入参数： thread ：线程指针
+			  type：等待的事件类型
+			  tick：超时返回时间
+			  * result：事件响应结果返回参数保存地址
+ * 输出参数： 无
+ * 返 回 值： 无
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/06/11	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
+void EL_Pthread_EventWait(EL_PTCB_T * thread,PendType_t type,EL_UINT tick,int * result)
+{
+	/* 升序插入tick */
+	if((!tick) || (thread == NULL)||(type == EVENT_TYPE_NONE_WAIT))return;
+	if( tick == _MAX_TICKS_TO_WAIT )
+	{
+		EL_Pthread_Suspend(thread);
+		return;
+	}
+	if(EL_PTHREAD_RUNNING != PTHREAD_STATUS_GET(g_pthread_sp)) return;/* 不在运行态就退出，一般不会在这退出 */
+	TickPending_t *PendingObj;
+	
+	OS_Enter_Critical_Check();/* 避免多个线程使用删除列表 */
+	EL_UINT temp_abs_tick = g_TickSuspend_Count;
+	EL_UINT temp_overflow_tick = g_TickSuspend_OverFlowCount;
+	if(g_TickSuspend_Count + tick < g_TickSuspend_Count)
+		temp_overflow_tick ++;
+	temp_abs_tick = temp_abs_tick + tick;
+	
+	if (NULL == (PendingObj = (TickPending_t *)malloc(SZ_TickPending_t))){
+		OS_Exit_Critical_Check();
+		return;/* 没有足够的管理空间，线程不可延时，退出，继续运行当前线程 */
+	}
+	PendingObj->TickSuspend_Count = temp_abs_tick;
+	PendingObj->TickSuspend_OverFlowCount = temp_overflow_tick;
+	PendingObj->Pthread = (EL_PTCB_T *)(PTCB_BASE(g_pthread_sp));
+	PendingObj->Pthread->block_holder = (void *)(&PendingObj->TickPending_Node);
+	PendingObj->PendType = type;
+	PendingObj->result = result;
+	/* 切换状态并放入阻塞列表 */
+	EL_Klist_InsertSorted(&PendingObj->TickPending_Node,KERNEL_LIST_HEAD[EL_PTHREAD_PENDING]);/* 升序放入阻塞延时列表 */
+	PTHREAD_STATE_SET(PendingObj->Pthread,EL_PTHREAD_PENDING);
+	OS_Exit_Critical_Check();
+}
+
+/**********************************************************************
+ * 函数名称： EL_Pthread_EventWakeup
+ * 功能描述： 线程等待事件唤醒
+ * 输入参数： thread ：线程指针
+ * 输出参数： 无
+ * 返 回 值： 无
+ * 修改日期        版本号     修改人	      修改内容
+ * -----------------------------------------------
+ * 2024/06/11	    V1.0	  jinyicheng	      创建
+ ***********************************************************************/
+void EL_Pthread_EventWakeup(EL_PTCB_T * thread)
+{
+	TickPending_t *PendingObj;
+	if(thread == NULL) return;
+	if(thread->pthread_state == EL_PTHREAD_SUSPEND)
+	{
+		EL_Pthread_Resume(thread);
+		return;
+	}	
+	OS_Enter_Critical_Check();
+	PendingObj = (TickPending_t *)thread->block_holder;
+	*(PendingObj->result) = (int)EL_RESULT_OK;
+	/* 设置为就绪态 */
+	PendingObj->Pthread->pthread_state = EL_PTHREAD_READY;
+	/* 放入就绪列表 */
+	list_add_tail(&thread->pthread_node,\
+				  KERNEL_LIST_HEAD[EL_PTHREAD_READY]+thread->pthread_prio);
+	/* 删除并释放阻塞头 */
+	list_del(&PendingObj->TickPending_Node);
+	free((void *)PendingObj);
+	
+	OS_Exit_Critical_Check();
+}

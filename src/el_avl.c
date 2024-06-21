@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/* avlÊ÷³õÊ¼»¯ */
+/* avlæ ‘åˆå§‹åŒ– */
 void * avl_Initialise(avl_t * tree,compare vcomp,uint8_t node_off)
 {
     if(( tree == NULL ) || ( vcomp == NULL )) 
@@ -10,9 +10,10 @@ void * avl_Initialise(avl_t * tree,compare vcomp,uint8_t node_off)
     tree->root = NULL;
     tree->node_off = node_off;
     tree->vcomp = vcomp;
+    tree->count = 0;
 }
 
-/* ½Úµã³õÊ¼»¯ */
+/* èŠ‚ç‚¹åˆå§‹åŒ– */
 static inline void avl_node_init(avl_node_t * node)
 {
     node->height = 1;
@@ -21,7 +22,7 @@ static inline void avl_node_init(avl_node_t * node)
     node->parent = NULL;
 }
 
-/* ¸üÐÂÊ÷¸ß */
+/* æ›´æ–°æ ‘é«˜ */
 static inline void avl_node_height_update(avl_node_t * node)
 {
     int lheight,rheight;
@@ -31,7 +32,7 @@ static inline void avl_node_height_update(avl_node_t * node)
     node->height = AVL_MAX(lheight,rheight) + 1;
 }
 
-/* µÚÒ»¸ö½Úµã */
+/* èŽ·å–æ ‘çš„å¤´å¶å­èŠ‚ç‚¹ */
 avl_node_t * avl_find_first_node(avl_t * tree)
 {
     avl_node_t * node = tree->root;
@@ -41,7 +42,7 @@ avl_node_t * avl_find_first_node(avl_t * tree)
     return node;
 }
 
-/* ×îºóÒ»¸ö½Úµã */
+/* èŽ·å–æ ‘çš„å°¾å¶å­èŠ‚ç‚¹ */
 avl_node_t * avl_find_last_node(avl_t * tree)
 {
     avl_node_t * node = tree->root;
@@ -51,11 +52,11 @@ avl_node_t * avl_find_last_node(avl_t * tree)
     return node;
 }
 
-/* »ñÈ¡ºó¼Ì½Úµã */
+/* èŽ·å–åŽç»§èŠ‚ç‚¹ */
 avl_node_t * avl_next_node(avl_node_t * node)
 {
     avl_node_t * index = node->rchild;
-    /* Ã»ÓÐÓÒº¢¾Í·µ»Ø¸¸½Úµã */
+    /* æ²¡æœ‰å³å­©å°±è¿”å›žçˆ¶èŠ‚ç‚¹ */
     if(node->rchild == NULL)
         return node->parent;
     while(index->lchild != NULL)
@@ -63,11 +64,11 @@ avl_node_t * avl_next_node(avl_node_t * node)
     return index;
 }
 
-/* »ñÈ¡Ç°Çý½Úµã */
+/* èŽ·å–å‰é©±èŠ‚ç‚¹ */
 avl_node_t * avl_prev_node(avl_node_t * node)
 {
     avl_node_t * index = node->lchild;
-    /* Ã»ÓÐ×óº¢¾Í·µ»Ø¸¸½Úµã */
+    /* æ²¡æœ‰å·¦å­©å°±è¿”å›žçˆ¶èŠ‚ç‚¹ */
     if(node->lchild == NULL)
         return node->parent;
     while(index->rchild != NULL)
@@ -75,7 +76,7 @@ avl_node_t * avl_prev_node(avl_node_t * node)
     return index;
 } 
 
-/* ½»»»½ÚµãºÍËüµÄ×óº¢ */
+/* äº¤æ¢èŠ‚ç‚¹å’Œå®ƒçš„å·¦å­© */
 void avl_node_exchange_with_l(avl_node_t * node, avl_node_t * lchild)
 {
     avl_node_t * parent = node->parent;
@@ -86,7 +87,7 @@ void avl_node_exchange_with_l(avl_node_t * node, avl_node_t * lchild)
 	if(parent) parent->rchild = lchild;
 }
 
-/* ½»»»½ÚµãºÍËüµÄÓÒº¢ */                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+/* äº¤æ¢èŠ‚ç‚¹å’Œå®ƒçš„å³å­© */                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
 void avl_node_exchange_with_r(avl_node_t * node, avl_node_t * rchild)
 {
     avl_node_t * parent = node->parent;
@@ -97,7 +98,7 @@ void avl_node_exchange_with_r(avl_node_t * node, avl_node_t * rchild)
 	if(parent) parent->lchild = rchild;
 }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
 
-/* ÓÒÐý½Úµã */
+/* å³æ—‹èŠ‚ç‚¹ */
 void avl_node_ratate_right(avl_node_t * node,avl_t * tree)
 {
     avl_node_t * lchild = node->lchild;
@@ -116,7 +117,7 @@ void avl_node_ratate_right(avl_node_t * node,avl_t * tree)
     else tree->root = lchild;
 }
 
-/* ×óÐý½Úµã */
+/* å·¦æ—‹èŠ‚ç‚¹ */
 void avl_node_ratate_left(avl_node_t * node,avl_t * tree)
 {
     avl_node_t * rchild = node->rchild;
@@ -136,7 +137,7 @@ void avl_node_ratate_left(avl_node_t * node,avl_t * tree)
     else tree->root = rchild;
 }
 
-/* LL/LR×óÊ§ºâ´¦Àí */
+/* LL/LRå·¦å¤±è¡¡å¤„ç† */
 void avl_left_unbalan_handle(avl_node_t * subtree,avl_t * tree)
 {
     int lh,rh;
@@ -145,19 +146,19 @@ void avl_left_unbalan_handle(avl_node_t * subtree,avl_t * tree)
     lh = AVL_LCHILD_HEIGHT(left);
     rh = AVL_RCHILD_HEIGHT(left);
     if( rh > lh ){
-        /* ×óÐýLRÐÍ³ÉLLÐÍ */
+        /* å·¦æ—‹LRåž‹æˆLLåž‹ */
         avl_node_ratate_left(left,tree);
         avl_node_height_update(left->lchild);
         avl_node_height_update(left);
     }
-    /*ÓÒÐýLLÐÍ*/
+    /*å³æ—‹LLåž‹*/
     avl_node_ratate_right(tree_root,tree);
-    /*µ÷½Ú±»Ðý×ª½ÚµãµÄÓÒ×ÓÊ÷µÄ¸ß¶È*/
+    /*è°ƒèŠ‚è¢«æ—‹è½¬èŠ‚ç‚¹çš„å³å­æ ‘çš„é«˜åº¦*/
     avl_node_height_update(tree_root->rchild);
     avl_node_height_update(tree_root);
 }
 
-/* RR/RLÓÒÊ§ºâ´¦Àí */
+/* RR/RLå³å¤±è¡¡å¤„ç† */
 void avl_right_unbalan_handle(avl_node_t * subtree,avl_t * tree)
 {
     int lh,rh;
@@ -166,20 +167,20 @@ void avl_right_unbalan_handle(avl_node_t * subtree,avl_t * tree)
     lh = AVL_LCHILD_HEIGHT(right);
     rh = AVL_RCHILD_HEIGHT(right);
     if( lh > rh ){
-        /* ÓÒÐýRLÐÍ³ÉRRÐÍ */
+        /* å³æ—‹RLåž‹æˆRRåž‹ */
         avl_node_ratate_right(right,tree);
         avl_node_height_update(right->rchild);
         avl_node_height_update(right);
     }
-    /*×óÐýRRÐÍ*/
+    /*å·¦æ—‹RRåž‹*/
     avl_node_ratate_left(tree_root,tree);
-    /*µ÷½Ú±»Ðý×ª½ÚµãµÄ×ó×ÓÊ÷µÄ¸ß¶È*/
+    /*è°ƒèŠ‚è¢«æ—‹è½¬èŠ‚ç‚¹çš„å·¦å­æ ‘çš„é«˜åº¦*/
     avl_node_height_update(tree_root->lchild);
     avl_node_height_update(tree_root);
 }
 
 
-/* ±éÀú¸üÐÂÊ÷¸ß */
+/* éåŽ†æ›´æ–°æ ‘é«˜ */
 void avl_node_post_height_updata(avl_node_t * start)
 {
     avl_node_t * index = start;
@@ -191,7 +192,7 @@ void avl_node_post_height_updata(avl_node_t * start)
     }
 }
 
-/* ´¦ÀíÊ§ºâ */
+/* å¤„ç†å¤±è¡¡ */
 avl_node_t * avl_node_post_unbalance(avl_node_t * start,avl_t * tree)
 {
     avl_node_t * pos = start;
@@ -202,21 +203,21 @@ avl_node_t * avl_node_post_unbalance(avl_node_t * start,avl_t * tree)
         balance_factor = AVL_TREE_BLNFCT(pos);
         if( balance_factor >= 2 )
         {
-            /* LL»òLRÊ§ºâ */
+            /* LLæˆ–LRå¤±è¡¡ */
             avl_left_unbalan_handle(pos,tree);
-            break;
+            //break;
         }else if( balance_factor <= -2 )
         {
-            /* RR»òRLÊ§ºâ */
+            /* RRæˆ–RLå¤±è¡¡ */
             avl_right_unbalan_handle(pos,tree);
-            break;
+            //break;
         }
         pos = pos->parent;
     }
     return pos;
 }
 
-/* Ìí¼ÓÒ¶×Ó½Úµã */
+/* æ·»åŠ å¶å­èŠ‚ç‚¹ */
 avl_node_t * avl_node_add_leaf(avl_node_t * node,avl_node_t * parent,avl_node_t ** pos)
 {
     (*pos) = node;
@@ -225,7 +226,7 @@ avl_node_t * avl_node_add_leaf(avl_node_t * node,avl_node_t * parent,avl_node_t 
     node->height = 1;
 }
 
-/* ²åÈë½Úµã */
+/* æ’å…¥èŠ‚ç‚¹ */
 avl_node_t * avl_node_add(avl_node_t * node, avl_t * tree)
 {
     int ret;
@@ -246,16 +247,17 @@ avl_node_t * avl_node_add(avl_node_t * node, avl_t * tree)
             pos = &((*pos)->rchild);
         }
     }
-    /* ÕÒµ½ÁË²åÈëµÄ½Úµã,ÏÈ²åÈë */
+    /* æ‰¾åˆ°äº†æ’å…¥çš„èŠ‚ç‚¹,å…ˆæ’å…¥ */
     avl_node_add_leaf(node,parent,pos);
-    /* postºó´¦Àí,ÏòÉÏÆ½ºâ×îÐ¡²»Æ½ºâ×ÓÊ÷ */
+    /* poståŽå¤„ç†,å‘ä¸Šå¹³è¡¡æœ€å°ä¸å¹³è¡¡å­æ ‘ */
     node_to_bala = avl_node_post_unbalance(node,tree);
-    /* ÏòÉÏ¸üÐÂÊ÷¸ß */
+    /* å‘ä¸Šæ›´æ–°æ ‘é«˜ */
     avl_node_post_height_updata(node_to_bala);
+    tree->count ++;
     return (*pos != NULL)?(*pos):NULL;  
 }
 
-/* ²éÕÒ½Úµã */
+/* æŸ¥æ‰¾èŠ‚ç‚¹ */
 avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree)
 {
     int ret;
@@ -275,23 +277,76 @@ avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree)
     return NULL;  
 }
 
-/* É¾³ý½Úµã */
-avl_node_t * avl_node_delete(avl_node_t * node)
+/* åˆ é™¤èŠ‚ç‚¹ */
+avl_node_t * avl_node_delete(avl_node_t * node,avl_t * tree)
 {
+    avl_node_t * parent = NULL;
+    avl_node_t * child = NULL;
     if( node == NULL )
         return NULL;
-	/*  */
+    /* case oneï¼šè¢«åˆ é™¤èŠ‚ç‚¹æœ‰å·¦å³å­©å­èŠ‚ç‚¹ */
+    if((node->lchild)&&(node->rchild))
+    {
+		avl_node_t * old = node;
+		avl_node_t * lchild = NULL;
+        /* å¯»æ‰¾è¢«åˆ é™¤èŠ‚ç‚¹çš„åŽç»§èŠ‚ç‚¹ */
+		node = node->rchild;
+		while ((lchild = node->lchild) != NULL)
+			node = lchild;
+		child = node->rchild;
+		parent = node->parent;
+		if (child) {
+			child->parent = parent;
+		}
+        /* è¢«åˆ é™¤èŠ‚ç‚¹çš„åŽç»§èŠ‚ç‚¹çš„çˆ¶èŠ‚ç‚¹å®‰ç½® */
+        if(parent){
+            if(parent->lchild == node) parent->lchild = child;
+            else parent->rchild = child;
+        }else tree->root = child;
+
+		if (node->parent == old)
+			parent = node;
+        /* åŽç»§èŠ‚ç‚¹ç»§æ‰¿åˆ°è¢«åˆ é™¤èŠ‚ç‚¹çš„ä½ç½® */
+		node->lchild = old->lchild;
+		node->rchild = old->rchild;
+		node->parent = old->parent;
+		node->height = old->height;
+        /* è¢«åˆ é™¤èŠ‚ç‚¹çš„çˆ¶èŠ‚ç‚¹å®‰ç½® */
+        if(old->parent){
+            if(old->parent->lchild == old) old->parent->lchild = node;
+            else old->parent->rchild = node;
+        }else tree->root = node;
+
+		old->lchild->parent = node;
+		if (old->rchild) {
+			old->rchild->parent = node;
+		}
+    }
+    /* case twoï¼šè¢«åˆ é™¤èŠ‚ç‚¹åªæœ‰ä¸€ä¸ªå­©å­èŠ‚ç‚¹æˆ–åˆ é™¤çš„èŠ‚ç‚¹æ˜¯å¶å­èŠ‚ç‚¹ */
+    else
+    {
+        parent = node->parent;
+        if(node->lchild != NULL) child = node->lchild;
+        else child = node->rchild;
+        if(child) child->parent = parent;
+        
+        if(parent){
+            if(parent->lchild == node) parent->lchild = child;
+            else parent->rchild = child;
+        }else tree->root = child;
+    }
+    if(parent)
+        avl_node_post_unbalance(parent,tree);
+    tree->count --;
 }
 
 #if AVL_DEBUG_PRINT == 1
-/* ÖÐÐò±éÀú */
+/* ä¸­åºéåŽ† */
 void avl_subtree_print(avl_node_t *root)
 {
     if (root == NULL) return;
     avl_subtree_print(root->lchild);
-	printf("\r\n");
     printf("%d ", root->value);
-	printf("\r\n");
     avl_subtree_print(root->rchild);
 }
 

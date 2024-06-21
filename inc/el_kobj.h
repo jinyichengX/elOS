@@ -6,7 +6,9 @@
 #include "el_mutex_lock.h"
 #include "el_speedpipe.h"
 #include "el_ktmr.h"
+#include "el_sem.h"
 #include "elightOS_config.h"
+
 typedef enum{
 	EL_KOBJ_PTCB,
 	
@@ -25,6 +27,9 @@ typedef enum{
 #if EL_USE_KTIMER
 	EL_KOBJ_kTIMER,
 #endif
+#if EL_USE_SEM
+	EL_KOBJ_SEM,
+#endif
 #if 1
     EL_KOBJ_TYPE_MAX
 #endif
@@ -41,5 +46,12 @@ typedef struct stKobjSelfBaseInfo{
 		EL_UINT Kobj_PoolSize;	/* 内核对象所需要的对象池大小 */
 	};
 }EL_kobj_info_t;
+
+extern EL_RESULT_T ELOS_KobjStatisticsGet( EL_KOBJTYPE_T obj_type, EL_kobj_info_t * pobj );
+extern void * ELOS_RequestForPoolWait(EL_KOBJTYPE_T kobj_type,EL_UINT ticks);
+
+extern EL_kobj_info_t EL_Kobj_BasicInfoTable_t[];
+
+#define KOBJ_INFO_MATCH(idx,start,end) for(idx = start; idx < end; idx++)
 
 #endif
