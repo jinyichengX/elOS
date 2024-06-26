@@ -137,7 +137,7 @@ void PORT_CPU_Initialise(void)
 }
 
 /* 初始化线程栈 */
-void * PORT_Initialise_pthread_stack(EL_PORT_STACK_TYPE * _STACK,void *PHREAD_ENTRY)
+void * PORT_Initialise_pthread_stack(EL_PORT_STACK_TYPE * _STACK,void *PHREAD_ENTRY,void * args)
 {
     EL_PORT_STACK_TYPE * P_STK = _STACK;
 	P_STK --;
@@ -145,9 +145,11 @@ void * PORT_Initialise_pthread_stack(EL_PORT_STACK_TYPE * _STACK,void *PHREAD_EN
 
     P_STK --;
     *P_STK = (EL_PORT_STACK_TYPE)PHREAD_ENTRY;
-	for(int i = 0;i<6;i++){
+	for(int i = 0;i<5;i++){
 		P_STK --;*P_STK = 0;
 	}
+	P_STK --;
+	*P_STK = (EL_PORT_STACK_TYPE)args;
 	P_STK -= 8;
 	return (void *)P_STK;
 }

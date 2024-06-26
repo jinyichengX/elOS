@@ -25,7 +25,7 @@ typedef EL_PORT_UINT EL_PORT_REG_TYPE;
 typedef EL_PORT_REG_TYPE EL_PORT_STACK_TYPE;
 
 extern void PORT_CPU_Initialise(void);
-extern void *PORT_Initialise_pthread_stack(EL_PORT_STACK_TYPE * _STACK,void *PHREAD_ENTRY);
+extern void *PORT_Initialise_pthread_stack(EL_PORT_STACK_TYPE * _STACK,void *PHREAD_ENTRY,void * args);
 extern void PORT_Start_Scheduler(void);
 extern void PORT_PendSV_Suspend(void);
 extern void portStartScheduler(void);

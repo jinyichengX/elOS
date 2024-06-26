@@ -1,6 +1,8 @@
 #include "el_kheap.h"
 #include <string.h>
 
+uint8_t sys_heap[10*1024];
+hcb_t * sysheap_hcb;
 /* 堆内存池对齐方式 */
 #if KHEAP_ALIGNMENT_UINT == 16
 #define KHEAP_BYTE_ALIGNMENT_MASK   			( 0x000f )
@@ -19,7 +21,7 @@
 #define KHEAP_MNGSZ_MIN 						(KHEAP_MNGHEADSZ_MIN + KHEAP_MNGNODEESZ_MIN)
 #define KHEAP_ALLOC_FIX_HEAD_MIN 				(ALIGNED_UP(sizeof(struct usdinfo)))
 /* 最小分配单元 */
-#define KHEAP_ALLOCSZ_MIN						( KHEAP_MNGNODEESZ_MIN )
+#define KHEAP_ALLOCSZ_MIN						(KHEAP_MNGNODEESZ_MIN)
 
 /* 设置分配方式 */
 #define KHEAP_ALLOCPATTERN_SET(phcb,md) 		((phcb)->strat.alloc_pttn = (AllocStrategy_t)md)

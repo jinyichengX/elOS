@@ -10,11 +10,11 @@
 #error "KPOOL_BYTE_ALIGNMENT macro must be divisible by 4"
 #endif
 
-/* 分配内核对象的静态内存池 */
+/* �����ں˶���ľ�̬�ڴ�� */
 EL_UCHAR EL_Pthread_Pendst_Pool[EL_Pthread_Pendst_Pool_Size];
 EL_UCHAR EL_Pthread_Suspendst_Pool[EL_Pthread_Suspendst_Pool_Size];
 
-/* 对象池对齐方式 */
+/* ����ض��뷽ʽ */
 #if KPOOL_BYTE_ALIGNMENT == 16
 #define KPOOL_BYTE_ALIGNMENT_MASK    ( 0x000f )
 #elif KPOOL_BYTE_ALIGNMENT == 8
@@ -24,61 +24,61 @@ EL_UCHAR EL_Pthread_Suspendst_Pool[EL_Pthread_Suspendst_Pool_Size];
 #endif
 
 #define KPOOL_BLOCK_HEAD_SZ sizeof(LIST_HEAD)
-/* 检查静态内存池合法性 */
+/* ��龲̬�ڴ�غϷ��� */
 #define IS_POOL_VALID(P) P->TotalBlockNum
-/* 检查内存对齐宏 */
+/* ����ڴ����� */
 #define IS_KPOOL_ALIGNED(BASE) (((EL_UINT)BASE & KPOOL_BYTE_ALIGNMENT_MASK) == 0)
-/* 将内核对象块大小向上作4字节对齐 */
+/* ���ں˶�����С������4�ֽڶ��� */
 #define EL_KPOOL_BLKSZ_ALIGNED(BLK_SZ) ( (KPOOL_BLOCK_HEAD_SZ + BLK_SZ)+(KPOOL_BYTE_ALIGNMENT - 1) )\
                                         & ~( (EL_UINT)KPOOL_BYTE_ALIGNMENT_MASK )
 #define EL_POOL_BLOCK_NODE_ADDR(POBJ)  ((EL_UCHAR *)POBJ-KPOOL_BLOCK_HEAD_SZ)
 	
 /**********************************************************************
- * 函数名称： EL_stKpoolInitialise
- * 功能描述： 静态池初始化
- * 输入参数： PoolSurf ：静态内存池池面指针
-			 PoolSize ：静态内存池池深
-			 PerBlkSz ：池中每个静态内存块大小
- * 输出参数： 无
- * 返 回 值： EL_RESULT_OK/EL_RESULT_ERR
- * 修改日期        版本号     修改人	      修改内容
+ * �������ƣ� EL_stKpoolInitialise
+ * ���������� ��̬�س�ʼ��
+ * ��������� PoolSurf ����̬�ڴ�س���ָ��
+			 PoolSize ����̬�ڴ�س���
+			 PerBlkSz ������ÿ����̬�ڴ���С
+ * ��������� ��
+ * �� �� ֵ�� EL_RESULT_OK/EL_RESULT_ERR
+ * �޸�����        �汾��     �޸���	      �޸�����
  * -----------------------------------------------
- * 2024/02/25	    V1.0	  jinyicheng	      创建
+ * 2024/02/25	    V1.0	  jinyicheng	      ����
  ***********************************************************************/
 EL_RESULT_T EL_stKpoolInitialise(void * PoolSurf,EL_UINT PoolSize,EL_UINT PerBlkSz)
 {
     EL_KPOOL_INFO_T * pKpoolInfo= (EL_KPOOL_INFO_T *)PoolSurf;
     int i;EL_UCHAR * blk_list;
-    /* 传参检查 */
+    /* ���μ�� */
     if((PoolSurf == NULL) || (PoolSize <= sizeof(EL_KPOOL_INFO_T))\
-	|| (PerBlkSz == 0))
-        return EL_RESULT_ERR;
-    /* 检查对齐，编译器应该会自动对齐 */
+	   || (PerBlkSz == 0))
+     return EL_RESULT_ERR;
+    /* �����룬������Ӧ�û��Զ����� */
     if (!IS_KPOOL_ALIGNED(PoolSurf)) return EL_RESULT_ERR;
 	
-	/* 这里需要进入临界区是因为为了用户和内核空间统一管理 */
-	/* 避免用户在多线程环境中使用静态内存分配方式时导致的竞态问题 */
+	/* ������Ҫ�����ٽ�������ΪΪ���û����ں˿ռ�ͳһ���� */
+	/* �����û��ڶ��̻߳�����ʹ�þ�̬�ڴ���䷽ʽʱ���µľ�̬���� */
     OS_Enter_Critical_Check();
-    /* 静态内存池控制头初始化 */
+    /* ��̬�ڴ�ؿ���ͷ��ʼ�� */
     pKpoolInfo->PerBlockSize = EL_KPOOL_BLKSZ_ALIGNED(PerBlkSz);
     pKpoolInfo->TotalBlockNum = (PoolSize - sizeof(EL_KPOOL_INFO_T))/\
 								pKpoolInfo->PerBlockSize;
     pKpoolInfo->UsingBlockCnt = (EL_UINT)0;
     
     if(pKpoolInfo->TotalBlockNum == (EL_UINT)0){
-        OS_Exit_Critical_Check();
-        return EL_RESULT_ERR;
+	 OS_Exit_Critical_Check();
+	 return EL_RESULT_ERR;
     }
-    /* 初始化静态内存池控制头的链表头 */
+    /* ��ʼ����̬�ڴ�ؿ���ͷ������ͷ */
     INIT_LIST_HEAD(&pKpoolInfo->ObjBlockList);
-    /* 将所有可用的内存块节点通过链表连接起来 */
+    /* �����п��õ��ڴ��ڵ�ͨ�������������� */
     blk_list = (EL_UCHAR *)PoolSurf+sizeof(EL_KPOOL_INFO_T);
 	list_add_tail((LIST_HEAD *)blk_list,&pKpoolInfo->ObjBlockList);
     for(i = 0; i < pKpoolInfo->TotalBlockNum-1; ++i){
-        blk_list += pKpoolInfo->PerBlockSize;
-        list_add_tail((LIST_HEAD *)blk_list,&pKpoolInfo->ObjBlockList);
+	 blk_list += pKpoolInfo->PerBlockSize;
+	 list_add_tail((LIST_HEAD *)blk_list,&pKpoolInfo->ObjBlockList);
     }
-	/* 初始化等待列表 */
+	/* ��ʼ���ȴ��б� */
 	INIT_LIST_HEAD(&pKpoolInfo->WaitersToTakePool);
     OS_Exit_Critical_Check();
 	
@@ -86,14 +86,14 @@ EL_RESULT_T EL_stKpoolInitialise(void * PoolSurf,EL_UINT PoolSize,EL_UINT PerBlk
 }
 
 /**********************************************************************
- * 函数名称： EL_stKpoolBlockTryAlloc
- * 功能描述： 从指定静态池分配内存块
- * 输入参数： PoolSurf ：静态内存池
- * 输出参数： 无
- * 返 回 值： 可用静态内存块地址
- * 修改日期        版本号     修改人	      修改内容
+ * �������ƣ� EL_stKpoolBlockTryAlloc
+ * ���������� ��ָ����̬�ط����ڴ��
+ * ��������� PoolSurf ����̬�ڴ��
+ * ��������� ��
+ * �� �� ֵ�� ���þ�̬�ڴ���ַ
+ * �޸�����        �汾��     �޸���	      �޸�����
  * -----------------------------------------------
- * 2024/02/25	    V1.0	  jinyicheng	      创建
+ * 2024/02/25	    V1.0	  jinyicheng	      ����
  ***********************************************************************/
 void * EL_stKpoolBlockTryAlloc(void *PoolSurf)
 {
@@ -104,11 +104,11 @@ void * EL_stKpoolBlockTryAlloc(void *PoolSurf)
 	
     OS_Enter_Critical_Check();
     if(pKpoolInfo->TotalBlockNum == pKpoolInfo->UsingBlockCnt){
-        ASSERT(list_empty(&pKpoolInfo->ObjBlockList));
-        OS_Exit_Critical_Check();
-        return NULL;
+	 ASSERT(list_empty(&pKpoolInfo->ObjBlockList));
+	 OS_Exit_Critical_Check();
+	 return NULL;
     }
-    /* 释放第一个节点 */
+    /* �ͷŵ�һ���ڵ� */
 	pBlkToAlloc = (EL_UCHAR *)(pKpoolInfo->ObjBlockList.next + 1); 
     list_del(pKpoolInfo->ObjBlockList.next);
     pKpoolInfo->UsingBlockCnt ++;
@@ -118,15 +118,15 @@ void * EL_stKpoolBlockTryAlloc(void *PoolSurf)
 }
 
 /**********************************************************************
- * 函数名称： EL_stKpoolBlockAllocWait
- * 功能描述： 从指定静态池超时（忙）等待分配内存块
- * 输入参数： PoolSurf ：静态内存池
-             TicksToWait ：超时等待时长
- * 输出参数： 无
- * 返 回 值： 可用静态内存块地址
- * 修改日期        版本号     修改人	      修改内容
+ * �������ƣ� EL_stKpoolBlockAllocWait
+ * ���������� ��ָ����̬�س�ʱ��æ���ȴ������ڴ��
+ * ��������� PoolSurf ����̬�ڴ��
+             TicksToWait ����ʱ�ȴ�ʱ��
+ * ��������� ��
+ * �� �� ֵ�� ���þ�̬�ڴ���ַ
+ * �޸�����        �汾��     �޸���	      �޸�����
  * -----------------------------------------------
- * 2024/03/02	    V1.0	  jinyicheng	      创建
+ * 2024/03/02	    V1.0	  jinyicheng	      ����
  ***********************************************************************/
 void * EL_stKpoolBlockAllocWaitSpin(void *PoolSurf,EL_UINT TicksToWait)
 {
@@ -140,7 +140,7 @@ void * EL_stKpoolBlockAllocWaitSpin(void *PoolSurf,EL_UINT TicksToWait)
     if(MaxUpperLimitTick < g_TickSuspend_Count) MaxUpperLimitTick_OverFlow ++;
 
     OS_Enter_Critical_Check();
-    /* 等待空闲内存池，这里只能自旋等待，因为多个内存池与高速队列不同，是由多线程共享的 */
+    /* �ȴ������ڴ�أ�����ֻ�������ȴ�����Ϊ����ڴ������ٶ��в�ͬ�����ɶ��̹߳����� */
     while(pKpoolInfo->TotalBlockNum == pKpoolInfo->UsingBlockCnt){
         if(TicksToWait == (EL_UINT)0){
             ASSERT(list_empty(&pKpoolInfo->ObjBlockList));
@@ -149,17 +149,17 @@ void * EL_stKpoolBlockAllocWaitSpin(void *PoolSurf,EL_UINT TicksToWait)
         }
         else if(TicksToWait != _MAX_TICKS_TO_WAIT){
             OS_Exit_Critical_Check();
-            /* 唤醒调度器 */
+            /* ���ѵ����� */
             PORT_PendSV_Suspend();
             OS_Enter_Critical_Check();
-            /* 更新需要继续等待的时间片长度 */
+            /* ������Ҫ�����ȴ���ʱ��Ƭ���� */
             TicksToWait = ((((g_TickSuspend_OverFlowCount == MaxUpperLimitTick_OverFlow)&&\
 		    (g_TickSuspend_Count >= MaxUpperLimitTick))\
 		    ||(g_TickSuspend_OverFlowCount > MaxUpperLimitTick_OverFlow)))?((EL_UINT)0):\
             ((EL_UINT)(MaxUpperLimitTick - g_TickSuspend_Count));
             continue;
         }
-        /* 将线程放入等待列表，设置挂起态 */
+        /* ���̷߳���ȴ��б������ù���̬ */
         list_add_tail(&Cur_ptcb->pthread_node,&pKpoolInfo->WaitersToTakePool);
         PTHREAD_STATE_SET(Cur_ptcb,EL_PTHREAD_SUSPEND);
 
@@ -167,7 +167,7 @@ void * EL_stKpoolBlockAllocWaitSpin(void *PoolSurf,EL_UINT TicksToWait)
         PORT_PendSV_Suspend();
         OS_Enter_Critical_Check();
     }
-    /* 有可用静态内存块，释放第一个节点 */
+    /* �п��þ�̬�ڴ�飬�ͷŵ�һ���ڵ� */
 	pBlkToAlloc = (EL_UCHAR *)(pKpoolInfo->ObjBlockList.next + 1); 
     list_del(pKpoolInfo->ObjBlockList.next);
     pKpoolInfo->UsingBlockCnt ++;
@@ -183,15 +183,15 @@ static inline void EL_stKpoolBlockNodeReInitialise(void * ObjNodeSurf)
 }
 
 /**********************************************************************
- * 函数名称： EL_stKpoolBlockFree
- * 功能描述： 从指定静态池回收内存块
- * 输入参数： PoolSurf ：静态内存池
-			 pBlkToFree ：需要释放的静态内存块首地址
- * 输出参数： 无
- * 返 回 值： 无
- * 修改日期        版本号     修改人	      修改内容
+ * �������ƣ� EL_stKpoolBlockFree
+ * ���������� ��ָ����̬�ػ����ڴ��
+ * ��������� PoolSurf ����̬�ڴ��
+			 pBlkToFree ����Ҫ�ͷŵľ�̬�ڴ���׵�ַ
+ * ��������� ��
+ * �� �� ֵ�� ��
+ * �޸�����        �汾��     �޸���	      �޸�����
  * -----------------------------------------------
- * 2024/02/25	    V1.0	  jinyicheng	      创建
+ * 2024/02/25	    V1.0	  jinyicheng	      ����
  ***********************************************************************/
 void EL_stKpoolBlockFree(void *PoolSurf,void *pBlkToFree)
 {
@@ -206,10 +206,10 @@ void EL_stKpoolBlockFree(void *PoolSurf,void *pBlkToFree)
     list_add_tail(pblk,&pKpoolInfo->ObjBlockList);
     pKpoolInfo->UsingBlockCnt --;
 	
-	/* 唤醒第一个因请求内存池而被阻塞的线程 */
+	/* ���ѵ�һ���������ڴ�ض����������߳� */
 //    if(!list_empty(&pKpoolInfo->WaitersToTakePool)){
 //        list_del(pKpoolInfo->WaitersToTakePool.next);
-//        /* 添加至就绪列表 */
+//        /* �����������б� */
 //        list_add_tail(&Cur_ptcb->pthread_node,\
 //            KERNEL_LIST_HEAD[EL_PTHREAD_READY]+Cur_ptcb->pthread_prio);
 //        PTHREAD_STATE_SET(Cur_ptcb,EL_PTHREAD_READY);
@@ -218,15 +218,15 @@ void EL_stKpoolBlockFree(void *PoolSurf,void *pBlkToFree)
 }
 
 /**********************************************************************
- * 函数名称： EL_stKpoolClear
- * 功能描述： 清零静态池中的某一内存块
- * 输入参数： PoolSurf ：静态内存池
-			 pBlk ：需要清零内存的静态内存块首地址
- * 输出参数： 无
- * 返 回 值： 无
- * 修改日期        版本号     修改人	      修改内容
+ * �������ƣ� EL_stKpoolClear
+ * ���������� ���㾲̬���е�ĳһ�ڴ��
+ * ��������� PoolSurf ����̬�ڴ��
+			 pBlk ����Ҫ�����ڴ�ľ�̬�ڴ���׵�ַ
+ * ��������� ��
+ * �� �� ֵ�� ��
+ * �޸�����        �汾��     �޸���	      �޸�����
  * -----------------------------------------------
- * 2024/02/25	    V1.0	  jinyicheng	      创建
+ * 2024/02/25	    V1.0	  jinyicheng	      ����
  ***********************************************************************/
 void EL_stKpoolClear(void * PoolSurf, void * pBlk)
 {

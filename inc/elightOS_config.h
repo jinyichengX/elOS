@@ -93,6 +93,6 @@
 
 /* 内核定时器配置 */
 #ifndef KTMR_THREAD_SHARE
-#define KTMR_THREAD_SHARE 0 /* 多定时器共享调度线程 */
+#define KTMR_THREAD_SHARE 1 /* 多定时器共享调度线程。不可设为0，功能待完善 */
 #endif
 #endif

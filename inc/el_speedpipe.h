@@ -51,8 +51,8 @@ typedef struct EL_HIGHTSPEED_PIPE_STRUCT
 	ipc_info_t SpeedPipeInfo;/* 高速队列基本参数 */ 
 	EL_UINT SpeedPipe_rd;/* 读索引 */
 	EL_UINT SpeedPipe_wr;/* 写索引 */
-	LIST_HEAD Waiters_rd;/* 等待读此高速队列的线程 */
-	LIST_HEAD Waiters_wr;/* 等待写此高速队列的线程 */
+	struct list_head Waiters_rd;/* 等待读此高速队列的线程 */
+	struct list_head Waiters_wr;/* 等待写此高速队列的线程 */
 	SPEEDPIPE_STATE_T SpeedPipe_state;/* 高速队列状态 */
 	callback_evt_t evt_on;/* 是否支持回调 */
 	f_callback p_func;/* 回调事件 */

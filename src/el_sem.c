@@ -1,16 +1,19 @@
 #include "el_sem.h"
 #include "kparam.h"
 
+extern EL_G_SYSTICK_TYPE systick_get(void);
+extern EL_G_SYSTICK_TYPE systick_passed(EL_G_SYSTICK_TYPE last_tick);
+
 /**********************************************************************
- * å‡½æ•°åç§°ï¼š el_sem_init
- * åŠŸèƒ½æè¿°ï¼š åˆå§‹åŒ–ä¿¡å·é‡
- * è¾“å…¥å‚æ•°ï¼š sem : å·²åˆ›å»ºçš„ä¿¡å·é‡å¯¹è±¡
-             value : ä¿¡å·é‡åˆå§‹è®¡æ•°
- * è¾“å‡ºå‚æ•°ï¼š æ— 
- * è¿” å› å€¼ï¼š æ— 
- * ä¿®æ”¹æ—¥æœŸ        ç‰ˆæœ¬å·     ä¿®æ”¹äºº	      ä¿®æ”¹å†…å®¹
+ * º¯ÊıÃû³Æ£º el_sem_init
+ * ¹¦ÄÜÃèÊö£º ³õÊ¼»¯ĞÅºÅÁ¿
+ * ÊäÈë²ÎÊı£º sem : ÒÑ´´½¨µÄĞÅºÅÁ¿¶ÔÏó
+             value : ĞÅºÅÁ¿³õÊ¼¼ÆÊı
+ * Êä³ö²ÎÊı£º ÎŞ
+ * ·µ »Ø Öµ£º ÎŞ
+ * ĞŞ¸ÄÈÕÆÚ        °æ±¾ºÅ     ĞŞ¸ÄÈË	      ĞŞ¸ÄÄÚÈİ
  * -----------------------------------------------
- * 2024/06/11	    V1.0	  jinyicheng	      åˆ›å»º
+ * 2024/06/11	    V1.0	  jinyicheng	      ´´½¨
  ***********************************************************************/
 void el_sem_init(el_sem_t * sem,uint32_t value)
 {
@@ -19,14 +22,14 @@ void el_sem_init(el_sem_t * sem,uint32_t value)
 }
 
 /**********************************************************************
- * å‡½æ•°åç§°ï¼š el_sem_creat
- * åŠŸèƒ½æè¿°ï¼š åˆ›å»ºå¹¶åˆå§‹åŒ–ä¿¡å·é‡
- * è¾“å…¥å‚æ•°ï¼š value : ä¿¡å·é‡åˆå§‹è®¡æ•°
- * è¾“å‡ºå‚æ•°ï¼š æ— 
- * è¿” å› å€¼ï¼š ä¿¡å·é‡å¥æŸ„
- * ä¿®æ”¹æ—¥æœŸ        ç‰ˆæœ¬å·     ä¿®æ”¹äºº	      ä¿®æ”¹å†…å®¹
+ * º¯ÊıÃû³Æ£º el_sem_creat
+ * ¹¦ÄÜÃèÊö£º ´´½¨²¢³õÊ¼»¯ĞÅºÅÁ¿
+ * ÊäÈë²ÎÊı£º value : ĞÅºÅÁ¿³õÊ¼¼ÆÊı
+ * Êä³ö²ÎÊı£º ÎŞ
+ * ·µ »Ø Öµ£º ĞÅºÅÁ¿¾ä±ú
+ * ĞŞ¸ÄÈÕÆÚ        °æ±¾ºÅ     ĞŞ¸ÄÈË	      ĞŞ¸ÄÄÚÈİ
  * -----------------------------------------------
- * 2024/06/11	    V1.0	  jinyicheng	      åˆ›å»º
+ * 2024/06/11	    V1.0	  jinyicheng	      ´´½¨
  ***********************************************************************/
 #if SEM_OBJ_STATIC == 1
 void * el_sem_creat(uint32_t value)
@@ -40,64 +43,71 @@ void * el_sem_creat(uint32_t value)
 #endif
 
 /**********************************************************************
- * å‡½æ•°åç§°ï¼š el_sem_take
- * åŠŸèƒ½æè¿°ï¼š é˜»å¡è·å–ä¿¡å·é‡
- * è¾“å…¥å‚æ•°ï¼š sem : å·²åˆ›å»ºçš„ä¿¡å·é‡å¯¹è±¡
-             tick : é˜»å¡ç­‰å¾…çš„æ—¶åŸºæ•°
- * è¾“å‡ºå‚æ•°ï¼š æ— 
- * è¿” å› å€¼ï¼š ok/nok
- * ä¿®æ”¹æ—¥æœŸ        ç‰ˆæœ¬å·     ä¿®æ”¹äºº	      ä¿®æ”¹å†…å®¹
+ * º¯ÊıÃû³Æ£º el_sem_take
+ * ¹¦ÄÜÃèÊö£º ×èÈû»ñÈ¡ĞÅºÅÁ¿
+ * ÊäÈë²ÎÊı£º sem : ÒÑ´´½¨µÄĞÅºÅÁ¿¶ÔÏó
+             tick : µÈ´ıµÄÊ±»ùÊı
+ * Êä³ö²ÎÊı£º ÎŞ
+ * ·µ »Ø Öµ£º ok/nok
+ * ĞŞ¸ÄÈÕÆÚ        °æ±¾ºÅ     ĞŞ¸ÄÈË	      ĞŞ¸ÄÄÚÈİ
  * -----------------------------------------------
- * 2024/06/11	    V1.0	  jinyicheng	      åˆ›å»º
+ * 2024/06/11	    V1.0	  jinyicheng	      ´´½¨
  ***********************************************************************/
 EL_RESULT_T el_sem_take(el_sem_t *sem,uint32_t tick)
 {
 	int ret = (int)EL_RESULT_ERR;
 	EL_PTCB_T *ptcb = NULL;
 	Suspend_t *SuspendObj;
+	EL_G_SYSTICK_TYPE tick_line = systick_get()+tick;
+	EL_G_SYSTICK_TYPE tick_now;
 	if( sem == NULL ) return EL_RESULT_ERR;
 	
 	OS_Enter_Critical_Check();
 	ptcb = EL_GET_CUR_PTHREAD();
-	if(sem->value)
-	{
+	if(sem->value){
 	 sem->value --;
 	 OS_Exit_Critical_Check();
 	 return EL_RESULT_OK;
 	}
-	else
-	{
-	 if(!tick) {
-	  OS_Exit_Critical_Check();
-	  return EL_RESULT_ERR;
+	else{
+	 if(tick != _MAX_TICKS_TO_WAIT){
+	  while(!sem->value){
+	   if(!tick){
+		OS_Exit_Critical_Check();
+		return EL_RESULT_ERR;
+	   }
+	   /* ½«Ïß³Ì¹³×Ó½ÚµãÌí¼Óµ½ĞÅºÅÁ¿µÈ´ı¶ÓÁĞ */
+	   list_add_tail(&ptcb->pthread_node,&sem->waiters);
+	   /* ×¢²áµÈ´ıÊÂ¼ş */
+	   EL_Pthread_EventWait(ptcb,EVENT_TYPE_SEM_WAIT,tick,&ret);
+	 
+	   OS_Exit_Critical_Check();
+	   PORT_PendSV_Suspend();
+	   OS_Enter_Critical_Check();
+	   if((ret == (int)EL_RESULT_OK) && (sem->value))
+		sem->value --;
+	   else{
+	    tick_now = systick_get();
+	    tick = (tick_line < tick_now)?0:(tick_line - tick_now);
+	    ret = (int)EL_RESULT_ERR;
+	    continue;
+	   }
+	   OS_Exit_Critical_Check();
+	
+	   return (EL_RESULT_T)ret;
+	  }
 	 }
-	 if(tick != _MAX_TICKS_TO_WAIT)
-	 {
-	  /* å°†çº¿ç¨‹é’©å­èŠ‚ç‚¹æ·»åŠ åˆ°ä¿¡å·é‡ç­‰å¾…é˜Ÿåˆ— */
-	  list_add_tail(&ptcb->pthread_node,&sem->waiters);
-	  /* æ³¨å†Œç­‰å¾…äº‹ä»¶ */
-	  EL_Pthread_EventWait(ptcb,EVENT_TYPE_SEM_WAIT,tick,&ret);
-	  OS_Exit_Critical_Check();
-	
-	  PORT_PendSV_Suspend();
-	
-	  OS_Enter_Critical_Check();
-	  if(ret == (int)EL_RESULT_OK) sem->value --;
-	  OS_Exit_Critical_Check();
-	
-	  return (EL_RESULT_T)ret;
-	 }else
-	 {
+	 else{
 	  while(!sem->value)
 	  {
 	   ASSERT(ptcb->pthread_state != EL_PTHREAD_SUSPEND);
 
-	   /* æŒ‚èµ·å½“å‰çº¿ç¨‹ */
+	   /* ¹ÒÆğµ±Ç°Ïß³Ì */
 	   if (NULL == (SuspendObj = (Suspend_t *)malloc(SZ_Suspend_t))){
 	    OS_Exit_Critical_Check();
 		return EL_RESULT_ERR;
 	   }
-	   /* å°†çº¿ç¨‹æ”¾å…¥ç­‰å¾…é˜Ÿåˆ— */
+	   /* ½«Ïß³Ì·ÅÈëµÈ´ı¶ÓÁĞ */
 	   list_add_tail(&ptcb->pthread_node,&sem->waiters);
 	   SuspendObj->Pthread = ptcb;
 	   SuspendObj->PendingType = (void *)0;
@@ -106,9 +116,9 @@ EL_RESULT_T el_sem_take(el_sem_t *sem,uint32_t tick)
 				&SuspendObj->Suspend_Node);
 
 	   OS_Exit_Critical_Check();
-	   /* æ‰§è¡Œä¸€æ¬¡çº¿ç¨‹åˆ‡æ¢ */
+	   /* Ö´ĞĞÒ»´ÎÏß³ÌÇĞ»» */
 	   PORT_PendSV_Suspend();
-	   /* å½“çº¿ç¨‹æ¢å¤è¿è¡Œåè¦å…ˆè¿›å…¥ä¸´ç•ŒåŒº */
+	   /* µ±Ïß³Ì»Ö¸´ÔËĞĞºóÒªÏÈ½øÈëÁÙ½çÇø */
 	   OS_Enter_Critical_Check();
 	  }
 	  sem->value --;
@@ -120,14 +130,14 @@ EL_RESULT_T el_sem_take(el_sem_t *sem,uint32_t tick)
 }
 
 /**********************************************************************
- * å‡½æ•°åç§°ï¼š el_sem_trytake
- * åŠŸèƒ½æè¿°ï¼š å°è¯•è·å–ä¿¡å·é‡
- * è¾“å…¥å‚æ•°ï¼š sem : å·²åˆ›å»ºçš„ä¿¡å·é‡å¯¹è±¡
- * è¾“å‡ºå‚æ•°ï¼š æ— 
- * è¿” å› å€¼ï¼š ok/nok
- * ä¿®æ”¹æ—¥æœŸ        ç‰ˆæœ¬å·     ä¿®æ”¹äºº	      ä¿®æ”¹å†…å®¹
+ * º¯ÊıÃû³Æ£º el_sem_trytake
+ * ¹¦ÄÜÃèÊö£º ³¢ÊÔ»ñÈ¡ĞÅºÅÁ¿
+ * ÊäÈë²ÎÊı£º sem : ÒÑ´´½¨µÄĞÅºÅÁ¿¶ÔÏó
+ * Êä³ö²ÎÊı£º ÎŞ
+ * ·µ »Ø Öµ£º ok/nok
+ * ĞŞ¸ÄÈÕÆÚ        °æ±¾ºÅ     ĞŞ¸ÄÈË	      ĞŞ¸ÄÄÚÈİ
  * -----------------------------------------------
- * 2024/06/11	    V1.0	  jinyicheng	      åˆ›å»º
+ * 2024/06/11	    V1.0	  jinyicheng	      ´´½¨
  ***********************************************************************/
 EL_RESULT_T el_sem_trytake(el_sem_t *sem)
 {
@@ -145,14 +155,14 @@ EL_RESULT_T el_sem_trytake(el_sem_t *sem)
 }
 
 /**********************************************************************
- * å‡½æ•°åç§°ï¼š el_sem_release
- * åŠŸèƒ½æè¿°ï¼š é‡Šæ”¾ä¿¡å·é‡
- * è¾“å…¥å‚æ•°ï¼š sem : å·²åˆ›å»ºçš„ä¿¡å·é‡å¯¹è±¡
- * è¾“å‡ºå‚æ•°ï¼š æ— 
- * è¿” å› å€¼ï¼š æ— 
- * ä¿®æ”¹æ—¥æœŸ        ç‰ˆæœ¬å·     ä¿®æ”¹äºº	      ä¿®æ”¹å†…å®¹
+ * º¯ÊıÃû³Æ£º el_sem_release
+ * ¹¦ÄÜÃèÊö£º ÊÍ·ÅĞÅºÅÁ¿
+ * ÊäÈë²ÎÊı£º sem : ÒÑ´´½¨µÄĞÅºÅÁ¿¶ÔÏó
+ * Êä³ö²ÎÊı£º ÎŞ
+ * ·µ »Ø Öµ£º ÎŞ
+ * ĞŞ¸ÄÈÕÆÚ        °æ±¾ºÅ     ĞŞ¸ÄÈË	      ĞŞ¸ÄÄÚÈİ
  * -----------------------------------------------
- * 2024/06/11	    V1.0	  jinyicheng	      åˆ›å»º
+ * 2024/06/11	    V1.0	  jinyicheng	      ´´½¨
  ***********************************************************************/
 void el_sem_release(el_sem_t *sem)
 {
@@ -164,17 +174,16 @@ void el_sem_release(el_sem_t *sem)
 	cur_ptcb = EL_GET_CUR_PTHREAD();
 	if(sem->value < 0xffffffff) sem->value ++;
 	else return;
-	/* æ˜¯å¦æœ‰çº¿ç¨‹ç­‰å¾…æ­¤ä¿¡å·é‡ */
-	if( !list_empty( &sem->waiters ) )
-	{
-	 /* è·å–ç¬¬ä¸€ä¸ªç­‰å¾…æ­¤ä¿¡å·é‡çš„çº¿ç¨‹ */
+	/* ÊÇ·ñÓĞÏß³ÌµÈ´ı´ËĞÅºÅÁ¿ */
+	if( !list_empty( &sem->waiters ) ){
+	 /* »ñÈ¡µÚÒ»¸öµÈ´ı´ËĞÅºÅÁ¿µÄÏß³Ì */
 	 ptcb = (EL_PTCB_T *)sem->waiters.next;
 
-	 /* ä»ç­‰å¾…é˜Ÿåˆ—åˆ é™¤ç­‰å¾…ä¿¡å·é‡çš„çº¿ç¨‹é’©å­èŠ‚ç‚¹ */
+	 /* ´ÓµÈ´ı¶ÓÁĞÉ¾³ıµÈ´ıĞÅºÅÁ¿µÄÏß³Ì¹³×Ó½Úµã */
 	 list_del(&ptcb->pthread_node);
-	 /* å”¤é†’ç¬¬ä¸€ä¸ªç­‰å¾…æ­¤ä¿¡å·é‡çš„çº¿ç¨‹ */
+	 /* »½ĞÑµÚÒ»¸öµÈ´ı´ËĞÅºÅÁ¿µÄÏß³Ì */
 	 EL_Pthread_EventWakeup(ptcb);
-	 /* å¦‚æœè¢«å”¤é†’çš„çº¿ç¨‹ä¼˜å…ˆçº§æ›´é«˜æ‰§è¡Œä¸€æ¬¡çº¿ç¨‹åˆ‡æ¢ */
+	 /* Èç¹û±»»½ĞÑµÄÏß³ÌÓÅÏÈ¼¶¸ü¸ßÖ´ĞĞÒ»´ÎÏß³ÌÇĞ»» */
 	 if( cur_ptcb->pthread_prio < ptcb->pthread_prio ) 
 	  need_sched = 1;
 	}
@@ -185,15 +194,15 @@ void el_sem_release(el_sem_t *sem)
 }
 
 /**********************************************************************
- * å‡½æ•°åç§°ï¼š el_sem_StatisticsTake
- * åŠŸèƒ½æè¿°ï¼š ä¿¡å·é‡çŠ¶æ€ä¿¡æ¯ç»Ÿè®¡
- * è¾“å…¥å‚æ•°ï¼š sem : å·²åˆ›å»ºçš„ä¿¡å·é‡å¯¹è±¡
-			  valï¼šå†™å…¥è®¡æ•°å€¼çš„é¦–åœ°å€
- * è¾“å‡ºå‚æ•°ï¼š æ— 
- * è¿” å› å€¼ï¼š ok/nok
- * ä¿®æ”¹æ—¥æœŸ        ç‰ˆæœ¬å·     ä¿®æ”¹äºº	      ä¿®æ”¹å†…å®¹
+ * º¯ÊıÃû³Æ£º el_sem_StatisticsTake
+ * ¹¦ÄÜÃèÊö£º ĞÅºÅÁ¿×´Ì¬ĞÅÏ¢Í³¼Æ
+ * ÊäÈë²ÎÊı£º sem : ÒÑ´´½¨µÄĞÅºÅÁ¿¶ÔÏó
+			  val£ºĞ´Èë¼ÆÊıÖµµÄÊ×µØÖ·
+ * Êä³ö²ÎÊı£º ÎŞ
+ * ·µ »Ø Öµ£º ok/nok
+ * ĞŞ¸ÄÈÕÆÚ        °æ±¾ºÅ     ĞŞ¸ÄÈË	      ĞŞ¸ÄÄÚÈİ
  * -----------------------------------------------
- * 2024/06/11	    V1.0	  jinyicheng	      åˆ›å»º
+ * 2024/06/11	    V1.0	  jinyicheng	      ´´½¨
  ***********************************************************************/
 EL_RESULT_T el_sem_StatisticsTake(el_sem_t *sem,uint32_t * val)
 {

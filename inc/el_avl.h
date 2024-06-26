@@ -30,6 +30,14 @@ typedef struct stAVLTreeNode
 #define AVL_MAX(x,y) (((x)>(y))?(x):(y))
 #endif
 
+#ifndef _AVL_NODE2CONTAINER
+#define _AVL_NODE2CONTAINER(pnode,noff) ((void *)(((size_t)(pnode))-(noff)))
+#endif
+
+#ifndef _AVL_CONTAINER2NODE
+#define _AVL_CONTAINER2NODE(pcont,noff) ((avl_node_t *)(((size_t)(pcont))+(noff)))
+#endif
+
 #define AVL_LCHILD_HEIGHT(node) (((node)->lchild)?(((node)->lchild)->height):0)
 #define AVL_RCHILD_HEIGHT(node) (((node)->rchild)?(((node)->rchild)->height):0)
 #define AVL_TREE_BLNFCT(node)   (AVL_LCHILD_HEIGHT(node) - AVL_RCHILD_HEIGHT(node))
@@ -44,6 +52,7 @@ extern avl_node_t * avl_find_last_node(avl_t * tree);
 extern avl_node_t * avl_next_node(avl_node_t * node);
 extern avl_node_t * avl_prev_node(avl_node_t * node);
 extern avl_node_t * avl_node_add(avl_node_t * node, avl_t * tree);
+extern avl_node_t * g_avl_node_add(void * node_cont, avl_t * tree);
 extern avl_node_t * avl_node_delete(avl_node_t * node,avl_t * tree);
 extern avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree);
 extern void avl_subtree_print(avl_node_t *root);

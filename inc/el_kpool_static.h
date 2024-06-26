@@ -4,21 +4,21 @@
 #include "el_type.h"
 #include "el_klist.h"
 
-/* å®šä¹‰å†…æ ¸æ‰€éœ€å¯¹è±¡æ± å¤§å° */
+/* ¶¨ÒåÄÚºËËùĞè¶ÔÏó³Ø´óĞ¡ */
 #define EL_Pthread_Pendst_Pool_Size 512
 #define EL_Pthread_Suspendst_Pool_Size 512
 
-/* ä»¥Nå­—èŠ‚å¯¹é½ */
+/* ÒÔN×Ö½Ú¶ÔÆë */
 #define KPOOL_BYTE_ALIGNMENT 4
 
-/* é™æ€å†…å­˜æ± æ§åˆ¶å¤´ */
+/* ¾²Ì¬ÄÚ´æ³Ø¿ØÖÆÍ· */
 typedef struct EL_KERNEL_POOL_STATIC_STRUCT
 {
-    struct list_head ObjBlockList; /* åˆ—è¡¨å¼•å¯¼å¤´ */
-    EL_UINT PerBlockSize;   /* è¯¥å†…å­˜æ± ä¸­åˆ†å—å¤§å° */
-    EL_UINT TotalBlockNum;   /* è¯¥å†…å­˜æ± ä¸­æ€»åˆ†å—æ•°ç›® */
-    EL_UINT UsingBlockCnt;   /* è¯¥å†…å­˜æ± ä¸­å·²ä½¿ç”¨åˆ†å—è®¡æ•° */
-	struct list_head WaitersToTakePool;/* ç­‰å¾…å¯¹è±¡æ± çš„çº¿ç¨‹ */
+    struct list_head ObjBlockList; /* ÁĞ±íÒıµ¼Í· */
+    EL_UINT PerBlockSize;   /* ¸ÃÄÚ´æ³ØÖĞ·Ö¿é´óĞ¡ */
+    EL_UINT TotalBlockNum;   /* ¸ÃÄÚ´æ³ØÖĞ×Ü·Ö¿éÊıÄ¿ */
+    EL_UINT UsingBlockCnt;   /* ¸ÃÄÚ´æ³ØÖĞÒÑÊ¹ÓÃ·Ö¿é¼ÆÊı */
+	struct list_head WaitersToTakePool;/* µÈ´ı¶ÔÏó³ØµÄÏß³Ì */
 }EL_KPOOL_INFO_T;
 
 extern EL_RESULT_T EL_stKpoolInitialise(void * PoolSurf,EL_UINT PoolSize,EL_UINT PerBlkSz);

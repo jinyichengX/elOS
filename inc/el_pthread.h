@@ -23,6 +23,8 @@
     #error "pthread name is too short"
 #endif
 
+typedef void (*pthread_entry)(void *);
+
 /* 线程状态类型 */
 typedef enum {
 	EL_PTHREAD_READY = 0, 							/* 线程就绪 */
@@ -100,9 +102,10 @@ typedef struct EL_OS_SuspendStruct
 
 extern EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,\
 									const char * name,\
-									void *pthread_entry,\
+									pthread_entry pthread_entry,\
 									EL_UINT pthread_stackSz,\
-									EL_PTHREAD_PRIO_TYPE pthread_prio);
+									EL_PTHREAD_PRIO_TYPE pthread_prio,\
+									void *args);
 extern void EL_OS_Start_Scheduler(void);
 extern void EL_PrioListInitialise(void);
 extern void EL_OS_Initialise(void);

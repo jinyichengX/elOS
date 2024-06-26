@@ -1,6 +1,6 @@
 #include "el_mem.h"
 
-/* åˆ†é…å†…å­˜ */
+/* ·ÖÅäÄÚ´æ */
 void * el_mem_alloc(mem_t * mem,uint32_t size)
 {
 	

@@ -1,6 +1,7 @@
 #ifndef EL_DEBUG_H
 #define EL_DEBUG_H
-
+#include <stdio.h>
+#include <stdarg.h>
 #include "port.h"
 
 #define CPU_INT_ON() CPU_ENTER_CRITICAL_NOCHECK()

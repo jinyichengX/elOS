@@ -70,7 +70,8 @@ typedef struct stLinkNode{
 struct usdinfo{
 	uint32_t usdsz; 					/* 块大小 */
 };		
-
+extern uint8_t sys_heap[10*1024];
+extern hcb_t * sysheap_hcb;
 extern void Kheap_name_set( hcb_t * hcb,const char * n);
 extern hcb_t * Kheap_Initialise(void * surf,void * bottom);	/* 堆初始化 */
 extern void * hp_alloc(hcb_t * hcb, uint32_t size);			/* 内存分配（阻塞方式） */

@@ -49,21 +49,21 @@ extern EL_UINT g_critical_nesting; /* 临界区嵌套计数 */
  * -----------------------------------------------
  * 2024/02/05	    V1.0	  jinyicheng	      创建
  ***********************************************************************/
-void EL_DefultPthread(void)
+void EL_DefultPthread(void * arg)
 {
 	while(1)
 	{
-		/* 做一些内存清理工作 */
-		if(!list_empty(&PthreadToDeleteListHead))
-		{
-			/* 堆内存的所有操作都不可重入 */
-			OS_Enter_Critical_Check();
-			free((void *)(((EL_PTCB_T *)(PthreadToDeleteListHead.next))->pthread_stack_top));
-			list_del(PthreadToDeleteListHead.next);
-			OS_Exit_Critical_Check();
-		}
-		/* 让出CPU */
-		PORT_PendSV_Suspend();
+	 /* 做一些内存清理工作 */
+	 if(!list_empty(&PthreadToDeleteListHead))
+	 {
+	  /* 堆内存的所有操作都不可重入 */
+	  OS_Enter_Critical_Check();
+	  free((void *)(((EL_PTCB_T *)(PthreadToDeleteListHead.next))->pthread_stack_top));
+	  list_del(PthreadToDeleteListHead.next);
+	  OS_Exit_Critical_Check();
+	 }
+	 /* 让出CPU */
+	 PORT_PendSV_Suspend();
 	}
 }
 /**********************************************************************
@@ -79,8 +79,8 @@ void EL_DefultPthread(void)
 void EL_PrioListInitialise(void)
 {
     for(EL_UINT prio_ind = 0;\
-	prio_ind < EL_MAX_LEVEL_OF_PTHREAD_PRIO;prio_ind++)
-		INIT_LIST_HEAD( &PRIO_LISTS[prio_ind] );
+	    prio_ind < EL_MAX_LEVEL_OF_PTHREAD_PRIO;prio_ind++)
+	 INIT_LIST_HEAD( &PRIO_LISTS[prio_ind] );
 }
 /**********************************************************************
  * 函数名称： EL_OS_Initialise
@@ -109,14 +109,19 @@ void EL_OS_Initialise(void)
 	/* 创建空闲线程 */
 	EL_Pthread_Create(&EL_Default_Pthread,"IDLE",EL_DefultPthread,\
 	MIN_PTHREAD_STACK_SIZE+EL_CFG_DEFAULT_PTHREAD_STACK_SIZE,\
-	EL_MAX_LEVEL_OF_PTHREAD_PRIO-1);
+	EL_MAX_LEVEL_OF_PTHREAD_PRIO-1,NULL);
 	/* 静态内存池初始化 */
 	EL_stKpoolInitialise(EL_Pthread_Pendst_Pool,\
 		EL_Pthread_Pendst_Pool_Size,SZ_TickPend_t);
 	EL_stKpoolInitialise(EL_Pthread_Suspendst_Pool,\
 		EL_Pthread_Suspendst_Pool_Size,SZ_Suspend_t);
 	/* 内存堆初始化 */
-		
+	sysheap_hcb = Kheap_Initialise((void *)sys_heap,(void *)(sys_heap+sizeof(sys_heap)));
+	/* 为内核定时器分配内存池并初始化 */
+	if(ELOS_RequestForPoolWait(EL_KOBJ_kTIMER,0) == NULL)
+	{
+		printf("alloc for kobj timer err");
+	}
 	/* 内核定时器初始化 */
 	ktmr_module_init();
 	/* 内核变量初始化 */
@@ -135,19 +140,20 @@ void EL_OS_Initialise(void)
  * 修改日期        版本号     修改人	      修改内容
  * -----------------------------------------------
  * 2024/02/05	    V1.0	  jinyicheng	      创建
+ * 2024/06/22		V1.0      jinyicheng		  添加线程私有参数	
  ***********************************************************************/
-EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,void *pthread_entry,\
-	EL_UINT pthread_stackSz,EL_PTHREAD_PRIO_TYPE prio)
+EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,pthread_entry entry,\
+	EL_UINT pthread_stackSz,EL_PTHREAD_PRIO_TYPE prio,void * args)
 {
 	EL_STACK_TYPE *PSTACK,*PSTACK_TOP = NULL;
 	EL_UINT NeededSize = MIN_PTHREAD_STACK_SIZE+pthread_stackSz;
 	
-	if(( ptcb == NULL )||( pthread_entry == NULL )||(pthread_stackSz <= MIN_PTHREAD_STACK_SIZE))
-		return EL_RESULT_ERR;
-    /* 初始化线程名 */
+	if(( ptcb == NULL )||( entry == NULL )||(pthread_stackSz <= MIN_PTHREAD_STACK_SIZE))
+	 return EL_RESULT_ERR;
+    /* 将线程名存储到线程控制块中 */
 	if(name){
-		for(int i = 0;i<(EL_PTHREAD_NAME_MAX_LEN<strlen(name)?EL_PTHREAD_NAME_MAX_LEN:strlen(name));i++)
-			ptcb->pthread_name[i] = name[i];
+	 for(int i = 0;i<(EL_PTHREAD_NAME_MAX_LEN<strlen(name)?EL_PTHREAD_NAME_MAX_LEN:strlen(name));i++)
+	  ptcb->pthread_name[i] = name[i];
 	}
     /* 分配线程栈 */
 	OS_Enter_Critical_Check();
@@ -158,7 +164,7 @@ EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,void *pthread_en
     PSTACK = (EL_STACK_TYPE *)((EL_STACK_TYPE)PSTACK&(~((EL_STACK_TYPE)0X3)));
 
     /* 初始化线程栈 */
-    ptcb->pthread_sp = (EL_PORT_STACK_TYPE *)PORT_Initialise_pthread_stack(PSTACK,pthread_entry);
+    ptcb->pthread_sp = (EL_PORT_STACK_TYPE *)PORT_Initialise_pthread_stack(PSTACK,(void *)entry,args);
 
     /* 线程控制块其他参数 */
     ptcb->pthread_prio = (prio>=(EL_MAX_LEVEL_OF_PTHREAD_PRIO-1))?\
@@ -177,7 +183,7 @@ EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,void *pthread_en
 	
 	/* 更新第一个启动的线程优先级 */
 	if(first_start_prio >= ptcb->pthread_prio) 
-		first_start_prio = ptcb->pthread_prio;
+	 first_start_prio = ptcb->pthread_prio;
     return EL_RESULT_OK;
 }
 /**********************************************************************
@@ -228,11 +234,11 @@ void EL_Update_Pthread_Stack_Usage_Percentage(void)
 for(EL_PTHREAD_PRIO_TYPE pth_prio = 0;\
 pth_prio < EL_MAX_LEVEL_OF_PTHREAD_PRIO;pth_prio++){\
 if(!list_empty(&PRIO_LISTS[pth_prio])){\
-	g_psp = (EL_PORT_STACK_TYPE)(((EL_PTCB_T *)(PRIO_LISTS[pth_prio].next))->pthread_sp);\
-	g_pthread_sp = &(((EL_PTCB_T *)(PRIO_LISTS[pth_prio].next))->pthread_sp);\
-	list_del(&(((EL_PTCB_T *)(PRIO_LISTS[pth_prio].next))->pthread_node));\
-	PTHREAD_STATUS_SET(g_pthread_sp,EL_PTHREAD_RUNNING);\
-	break;\
+ g_psp = (EL_PORT_STACK_TYPE)(((EL_PTCB_T *)(PRIO_LISTS[pth_prio].next))->pthread_sp);\
+ g_pthread_sp = &(((EL_PTCB_T *)(PRIO_LISTS[pth_prio].next))->pthread_sp);\
+ list_del(&(((EL_PTCB_T *)(PRIO_LISTS[pth_prio].next))->pthread_node));\
+ PTHREAD_STATUS_SET(g_pthread_sp,EL_PTHREAD_RUNNING);\
+ break;\
 }\
 }\
 }while(0);
@@ -250,14 +256,18 @@ void EL_Pthread_SwicthContext(void)
 {
 	/* 执行线程切换 */
 	if(EL_PTHREAD_RUNNING == PTHREAD_STATUS_GET(g_pthread_sp)){
-		/* 将上文线程插入到对应的优先级列表中 */
-		list_add_tail( &((PTCB_BASE(g_pthread_sp)->pthread_node)),\
-					&PRIO_LISTS[(PTCB_BASE(g_pthread_sp))->pthread_prio] );
-		PTHREAD_STATUS_SET(g_pthread_sp,EL_PTHREAD_READY);
-	}else if((EL_PTHREAD_PENDING == PTHREAD_STATUS_GET(g_pthread_sp))||\
-	(EL_PTHREAD_SUSPEND == PTHREAD_STATUS_GET(g_pthread_sp))){
-		OS_SCHED_DONOTHING();/* 如果是被阻塞或挂起的线程，什么都不做 */
-	}else {OS_SCHED_DONOTHING();}
+	 /* 将上文线程插入到对应的优先级列表中 */
+	 list_add_tail( &((PTCB_BASE(g_pthread_sp)->pthread_node)),\
+				&PRIO_LISTS[(PTCB_BASE(g_pthread_sp))->pthread_prio] );
+	 PTHREAD_STATUS_SET(g_pthread_sp,EL_PTHREAD_READY);
+	}
+	else if((EL_PTHREAD_PENDING == PTHREAD_STATUS_GET(g_pthread_sp))||\
+	 (EL_PTHREAD_SUSPEND == PTHREAD_STATUS_GET(g_pthread_sp))){
+	 OS_SCHED_DONOTHING();/* 如果是被阻塞或挂起的线程，什么都不做 */
+	}
+	else{
+	 OS_SCHED_DONOTHING();
+	}
     /* 找出优先级最高的线程，最高优先级线程轮转执行 */
 	EL_SearchForNextReadyPthread();
 }
@@ -278,7 +288,7 @@ void EL_TickIncCount(void)
 	g_TickSuspend_Count ++;
 	
 	if(g_TickSuspend_Count < g_TickSuspend_Count_Temp)
-		g_TickSuspend_OverFlowCount ++;
+	 g_TickSuspend_OverFlowCount ++;
 	
 	g_SysTick ++;
 }
@@ -301,23 +311,21 @@ void EL_Pthread_Pend_Release(void)
 	while((((g_TickSuspend_OverFlowCount==PTHREAD_NEXT_RELEASE_OVERFLOW_TICK_GET(PendListHead))&&\
 		(g_TickSuspend_Count>=PTHREAD_NEXT_RELEASE_TICK_GET(PendListHead)))\
 		||(g_TickSuspend_OverFlowCount>PTHREAD_NEXT_RELEASE_OVERFLOW_TICK_GET(PendListHead)))\
-		&&(!list_empty(&PendListHead)))
-	{
-		void *p_NodeToDel = (void *)PendListHead.next;
-		container = (TickPending_t *)p_NodeToDel;
-		if( container->PendType != EVENT_TYPE_SLEEP )
-		{
-			/* 等待同步量超时 */
-			*(container->result) = (int)EL_RESULT_ERR;
-		}
-		/* 设置为就绪态 */
-		((TickPending_t *)PendListHead.next)->Pthread->pthread_state = EL_PTHREAD_READY;
-		/* 放入就绪列表 */
-		list_add_tail(&PTHREAD_NEXT_RELEASE_PTCB_NODE_GET(PendListHead),\
-		&PRIO_LISTS[PTHREAD_NEXT_RELEASE_PRIO_GET(PendListHead)]);
-		/* 删除并释放阻塞头 */
-		list_del(PendListHead.next);
-		free(p_NodeToDel);
+		&&(!list_empty(&PendListHead))){
+	 void *p_NodeToDel = (void *)PendListHead.next;
+	 container = (TickPending_t *)p_NodeToDel;
+	 if( container->PendType != EVENT_TYPE_SLEEP ){
+	  /* 等待同步量超时 */
+	  *(container->result) = (int)EL_RESULT_ERR;
+	 }
+	 /* 设置为就绪态 */
+	 ((TickPending_t *)PendListHead.next)->Pthread->pthread_state = EL_PTHREAD_READY;
+	 /* 放入就绪列表 */
+	 list_add_tail(&PTHREAD_NEXT_RELEASE_PTCB_NODE_GET(PendListHead),\
+				   &PRIO_LISTS[PTHREAD_NEXT_RELEASE_PRIO_GET(PendListHead)]);
+	 /* 删除并释放阻塞头 */
+	 list_del(PendListHead.next);
+	 free(p_NodeToDel);
 	}
 }
 /**********************************************************************
@@ -341,12 +349,12 @@ void EL_Pthread_Sleep(EL_UINT TickToDelay)
 	EL_UINT temp_abs_tick = g_TickSuspend_Count;
 	EL_UINT temp_overflow_tick = g_TickSuspend_OverFlowCount;
 	if(g_TickSuspend_Count + TickToDelay < g_TickSuspend_Count)
-		temp_overflow_tick ++;
+	 temp_overflow_tick ++;
 	temp_abs_tick = temp_abs_tick + TickToDelay;
 	
 	if (NULL == (PendingObj = (TickPending_t *)malloc(SZ_TickPending_t))){
-		OS_Exit_Critical_Check();
-		return;/* 没有足够的管理空间，线程不可延时，退出，继续运行当前线程 */
+	 OS_Exit_Critical_Check();
+	 return;/* 没有足够的管理空间，线程不可延时，退出，继续运行当前线程 */
 	}
 	PendingObj->TickSuspend_Count = temp_abs_tick;
 	PendingObj->TickSuspend_OverFlowCount = temp_overflow_tick;
@@ -391,39 +399,39 @@ EL_RESULT_T EL_Pthread_Suspend(EL_PTCB_T *PthreadToSuspend)
 	OS_Enter_Critical_Check();/* 避免多个线程使用挂起列表 */
 	/* 不允许挂起空闲线程和重复挂起 */
 	if((ptcb == &EL_Default_Pthread) || (ptcb->pthread_state == EL_PTHREAD_SUSPEND)){
-		OS_Exit_Critical_Check();
-		return EL_RESULT_ERR;
+	 OS_Exit_Critical_Check();
+	 return EL_RESULT_ERR;
 	}
 	/* 如果挂起的是其他线程 */
 	if(PTHREAD_STATE_GET(ptcb) == EL_PTHREAD_DEAD){
-		OS_Exit_Critical_Check();/* 如果是死亡线程直接退出 */
-		return EL_RESULT_ERR;
+	 OS_Exit_Critical_Check();/* 如果是死亡线程直接退出 */
+	 return EL_RESULT_ERR;
 	}
 	if (NULL == (SuspendObj = (Suspend_t *)malloc(SZ_Suspend_t))){
-		OS_Exit_Critical_Check();
-		return EL_RESULT_ERR;/* 没有足够的管理空间，不可挂起，退出，继续运行当前线程 */
+	 OS_Exit_Critical_Check();
+	 return EL_RESULT_ERR;/* 没有足够的管理空间，不可挂起，退出，继续运行当前线程 */
 	}
 	SuspendObj->Pthread = ptcb;
 	SuspendObj->Suspend_nesting ++;
 	SuspendObj->PendingType = (void *)0;
 	/* 如果是本线程，则所有阻塞类事件已经结束，直接放入挂起列表 */
 	if(ptcb == EL_GET_CUR_PTHREAD()){
-		ptcb->block_holder = (void *)SuspendObj;
-		EL_Pthread_PushToSuspendList(ptcb,&SuspendObj->Suspend_Node);
-		OS_Exit_Critical_Check();
-		PORT_PendSV_Suspend();
-		
-		return EL_RESULT_OK;
+	 ptcb->block_holder = (void *)SuspendObj;
+	 EL_Pthread_PushToSuspendList(ptcb,&SuspendObj->Suspend_Node);
+	 OS_Exit_Critical_Check();
+	 PORT_PendSV_Suspend();
+	
+	 return EL_RESULT_OK;
 	}
 	if(ptcb->pthread_state == EL_PTHREAD_READY){
-		list_del(&ptcb->pthread_node);/* 从就绪列表删除 */
-		ptcb->block_holder = (void *)&SuspendObj->Suspend_Node;
+	 list_del(&ptcb->pthread_node);/* 从就绪列表删除 */
+	 ptcb->block_holder = (void *)&SuspendObj->Suspend_Node;
 	}else if(ptcb->pthread_state == EL_PTHREAD_PENDING){
-		/* 挂起策略1，阻塞延时无效 */
-		list_del((LIST_HEAD *)ptcb->block_holder);/* 从阻塞列表删除 */
-		SuspendObj->PendingType = (void *)ptcb->block_holder;
-		ptcb->block_holder = (void *)&SuspendObj->Suspend_Node;
-		/* 挂起策略2，阻塞延时有效 */
+	 /* 挂起策略1，阻塞延时无效 */
+	 list_del((LIST_HEAD *)ptcb->block_holder);/* 从阻塞列表删除 */
+	 SuspendObj->PendingType = (void *)ptcb->block_holder;
+	 ptcb->block_holder = (void *)&SuspendObj->Suspend_Node;
+	 /* 挂起策略2，阻塞延时有效 */
 	}
 	/* 加入挂起列表 */
 	list_add_tail(&SuspendObj->Suspend_Node,(KERNEL_LIST_HEAD[EL_PTHREAD_SUSPEND]));/* 加入阻塞列表 */
@@ -449,15 +457,15 @@ void EL_Pthread_Resume(EL_PTCB_T *PthreadToResume)
 	OS_Enter_Critical_Check();
 	/* 如果不是已经挂起的线程，退出 */
 	if(ptcb->pthread_state != EL_PTHREAD_SUSPEND) {
-		OS_Exit_Critical_Check();return;
+	 OS_Exit_Critical_Check();return;
 	}
 	/* 查看挂起前的状态并恢复，并从挂起列表删除 */
 	void * p_rec_node = (container_of(ptcb->block_holder,Suspend_t,Suspend_Node))->PendingType;
 	if(p_rec_node != NULL){/* 阻塞态 */
-		list_add_inorder((LIST_HEAD *)p_rec_node,KERNEL_LIST_HEAD[EL_PTHREAD_PENDING]);
+	 list_add_inorder((LIST_HEAD *)p_rec_node,KERNEL_LIST_HEAD[EL_PTHREAD_PENDING]);
 	}else{/* 就绪态 */
-		list_add_tail(&ptcb->pthread_node,\
-		KERNEL_LIST_HEAD[EL_PTHREAD_READY]+ptcb->pthread_prio);
+	 list_add_tail(&ptcb->pthread_node,\
+	 KERNEL_LIST_HEAD[EL_PTHREAD_READY]+ptcb->pthread_prio);
 	}
 	list_del((LIST_HEAD *)ptcb->block_holder);
 	free(ptcb->block_holder);
@@ -466,17 +474,6 @@ void EL_Pthread_Resume(EL_PTCB_T *PthreadToResume)
 	return;
 }
 
-///* 调度上锁 */
-//void EL_Pthread_SuspendAll()
-//{
-//	
-//}
-
-///* 调度解锁 */
-//void EL_Pthread_ResumeAll()
-//{
-//	
-//}
 /**********************************************************************
  * 函数名称： EL_Pthread_DelSelf
  * 功能描述： 销毁线程,不允许销毁其他同级线程！没有返回则说明删除成功，如果有返回值必然为NULL表示删除失败
@@ -531,17 +528,19 @@ void EL_Pthread_Priority_Set(EL_PTCB_T *PthreadToModify,EL_PTHREAD_PRIO_TYPE new
 	
 	OS_Enter_Critical_Check();/* 避免多个线程使用删除列表 */
 	if((PthreadToModify == ptcb)||(PthreadToModify == NULL)){/* 如果是当前线程 */
-		ASSERT(ptcb->pthread_state == EL_PTHREAD_RUNNING);
-		ptcb->pthread_prio = new_prio;/* 直接改变优先级 */
-		OS_Exit_Critical_Check(); return;
+	 ASSERT(ptcb->pthread_state == EL_PTHREAD_RUNNING);
+	 ptcb->pthread_prio = new_prio;/* 直接改变优先级 */
+	 OS_Exit_Critical_Check(); return;
 	}
 	/* 如果是其他线程 */
 	if(PthreadToModify->pthread_state == EL_PTHREAD_READY){/* 如果已处于就绪表中 */
-		/* 从原就绪表删除放入新就绪表 */
-		list_del(&PthreadToModify->pthread_node);/* 从原就绪列表删除 */
-		list_add_tail(&PthreadToModify->pthread_node,\
-		KERNEL_LIST_HEAD[EL_PTHREAD_READY]+PthreadToModify->pthread_prio);/* 加入到新的就绪列表 */
-	}else{ /* 其他情况下什么也不用做 */; }
+	 /* 从原就绪表删除放入新就绪表 */
+	 list_del(&PthreadToModify->pthread_node);/* 从原就绪列表删除 */
+	 list_add_tail(&PthreadToModify->pthread_node,\
+	 KERNEL_LIST_HEAD[EL_PTHREAD_READY]+PthreadToModify->pthread_prio);/* 加入到新的就绪列表 */
+	}
+	else{ /* 其他情况下什么也不用做 */; 
+	}
 	PthreadToModify->pthread_prio = new_prio;
 	OS_Exit_Critical_Check();
 	return;
@@ -566,22 +565,23 @@ void EL_Pthread_EventWait(EL_PTCB_T * thread,PendType_t type,EL_UINT tick,int * 
 	if((!tick) || (thread == NULL)||(type == EVENT_TYPE_NONE_WAIT))return;
 	if( tick == _MAX_TICKS_TO_WAIT )
 	{
-		EL_Pthread_Suspend(thread);
-		return;
+	 EL_Pthread_Suspend(thread);
+	 return;
 	}
-	if(EL_PTHREAD_RUNNING != PTHREAD_STATUS_GET(g_pthread_sp)) return;/* 不在运行态就退出，一般不会在这退出 */
+	if(EL_PTHREAD_RUNNING != PTHREAD_STATUS_GET(g_pthread_sp))
+	 return;
 	TickPending_t *PendingObj;
 	
-	OS_Enter_Critical_Check();/* 避免多个线程使用删除列表 */
+	OS_Enter_Critical_Check();
 	EL_UINT temp_abs_tick = g_TickSuspend_Count;
 	EL_UINT temp_overflow_tick = g_TickSuspend_OverFlowCount;
 	if(g_TickSuspend_Count + tick < g_TickSuspend_Count)
-		temp_overflow_tick ++;
+	 temp_overflow_tick ++;
 	temp_abs_tick = temp_abs_tick + tick;
 	
 	if (NULL == (PendingObj = (TickPending_t *)malloc(SZ_TickPending_t))){
-		OS_Exit_Critical_Check();
-		return;/* 没有足够的管理空间，线程不可延时，退出，继续运行当前线程 */
+	 OS_Exit_Critical_Check();
+	 return;
 	}
 	PendingObj->TickSuspend_Count = temp_abs_tick;
 	PendingObj->TickSuspend_OverFlowCount = temp_overflow_tick;
@@ -609,10 +609,9 @@ void EL_Pthread_EventWakeup(EL_PTCB_T * thread)
 {
 	TickPending_t *PendingObj;
 	if(thread == NULL) return;
-	if(thread->pthread_state == EL_PTHREAD_SUSPEND)
-	{
-		EL_Pthread_Resume(thread);
-		return;
+	if(thread->pthread_state == EL_PTHREAD_SUSPEND){
+	 EL_Pthread_Resume(thread);
+	 return;
 	}	
 	OS_Enter_Critical_Check();
 	PendingObj = (TickPending_t *)thread->block_holder;

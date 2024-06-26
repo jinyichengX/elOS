@@ -49,7 +49,8 @@ typedef struct stKobjSelfBaseInfo{
 
 extern EL_RESULT_T ELOS_KobjStatisticsGet( EL_KOBJTYPE_T obj_type, EL_kobj_info_t * pobj );
 extern void * ELOS_RequestForPoolWait(EL_KOBJTYPE_T kobj_type,EL_UINT ticks);
-
+extern void * kobj_alloc(EL_KOBJTYPE_T kobj_type);
+extern void kobj_free(EL_KOBJTYPE_T kobj_type,void * pobj_blk);
 extern EL_kobj_info_t EL_Kobj_BasicInfoTable_t[];
 
 #define KOBJ_INFO_MATCH(idx,start,end) for(idx = start; idx < end; idx++)

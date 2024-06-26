@@ -2,21 +2,21 @@
 #include "port.h"
 #include <string.h>
 
-///* è¿™é‡Œæ¯ä¸ªslab zoneé‡‡ç”¨å›ºå®šå¤§å°ï¼Œå¯ä»¥è‡ªåŠ¨è°ƒèŠ‚ */
+///* ÕâÀïÃ¿¸öslab zone²ÉÓÃ¹Ì¶¨´óĞ¡£¬¿ÉÒÔ×Ô¶¯µ÷½Ú */
 //static EL_UINT g_SlabPoolSize[ELOS_SLAB_CHUNK_MAX_LEVEL] = {
 //    [ 0 ... ELOS_SLAB_CHUNK_MAX_LEVEL-1 ] = ELOS_PER_SLAB_ZONE_DATA_SIZE;
 //};
-///* slabæ§åˆ¶å—ç®¡ç†çš„objå¤§å° */
+///* slab¿ØÖÆ¿é¹ÜÀíµÄobj´óĞ¡ */
 //static EL_UINT g_SlabObjSize[ELOS_SLAB_CHUNK_MAX_LEVEL] = {
 //};
-///* ç€è‰²èŠ‚ç‚¹è½¬ç§»è¡¨ */
+///* ×ÅÉ«½Úµã×ªÒÆ±í */
 //el_SlabCrRmp_t el_SlabCrRmpTab[4] = {
 //    {SLAB_CR_GREEN,SLAB_CR_YELLOW},{SLAB_CR_YELLOW,SLAB_CR_GREEN},
 //    {SLAB_CR_YELLOW,SLAB_CR_RED},{SLAB_CR_YELLOW,SLAB_CR_YELLOW},
 //    {SLAB_CR_RED,SLAB_CR_YELLOW},
 //};
 //EL_CHAR ELOS_SlabDisprEventCallBack(el_slab_callevt_t callevt_type);
-///* è·å–ç€è‰²å™¨é•¿åº¦ */
+///* »ñÈ¡×ÅÉ«Æ÷³¤¶È */
 //EL_UINT ELOS_SlabColorCntList(void *Slab_PoolSurf,LIST_HEAD* pList)
 //{
 
@@ -41,23 +41,23 @@
 
 //}
 
-///* æ‰¾åˆ°ç©ºä½ç½®ä½å¹¶è¿”å›ç´¢å¼• */
+///* ÕÒµ½¿ÕÎ»ÖÃÎ»²¢·µ»ØË÷Òı */
 //EL_UINT ELOS_SlabSDisprBitmapFindBitAndSet(el_SlabDispr_t * pSlabDispr)
 //{
 
 //}
 
-///* æ‰¾åˆ°ç©ºä½ç½®é›¶å¹¶è¿”å›ç´¢å¼• */
+///* ÕÒµ½¿ÕÎ»ÖÃÁã²¢·µ»ØË÷Òı */
 //EL_UINT ELOS_SlabSDisprBitmapFindBitAndClear(el_SlabDispr_t * pSlabDispr,EL_INT index)
 //{
 
 //}
-///* è½¬ç§»è‡³æ·±è‰²èŠ‚ç‚¹ï¼Œè¿”å›+1 */
+///* ×ªÒÆÖÁÉîÉ«½Úµã£¬·µ»Ø+1 */
 //EL_CHAR ELOS_SlabColorConvDeepIdxTake(el_SlabDispr_t * pSlabDispr)
 //{
 //    return pSlabDispr
 //}
-///* æµ…è‰²èŠ‚ç‚¹ï¼Œè¿”å›-1 */
+///* Ç³É«½Úµã£¬·µ»Ø-1 */
 //EL_CHAR ELOS_SlabColorConvSallowIdxTake(el_SlabDispr_t * pSlabDispr)
 //{
 //    return 
@@ -72,7 +72,7 @@
 //    for(int idx=0; idx<ELOS_SLAB_CHUNK_MAX_LEVEL-1; idx++)
 //        SlabZoneResize(size);
 //}
-///* slabæ§åˆ¶ç»„åˆå§‹åŒ– */
+///* slab¿ØÖÆ×é³õÊ¼»¯ */
 //void ELOS_SlabPoolClassInitialise(void *Slab_PoolSurf, EL_UINT Slab_PoolSize)
 //{
 //    el_SlabPoolHead_t *p_SlabPool = (el_SlabPoolHead_t *)0;
@@ -83,7 +83,7 @@
 
 //    p_SlabPool = (el_SlabPoolHead_t *)Slab_PoolSurf;
 //    OS_Enter_Critical_Check();
-//    /* åˆå§‹åŒ–slabæ§åˆ¶å¤´ */
+//    /* ³õÊ¼»¯slab¿ØÖÆÍ· */
 //    for( int idx = 0; idx < ELOS_SLAB_CHUNK_MAX_LEVEL; ++idx, p_SlabPool++ ){
 //        SLAB_POOL_HEAD_INIT(p_SlabPool);
 //        (*p_SlabPool).ckColorCnt = NULL;
@@ -99,7 +99,7 @@
 //    return;
 //}
 
-///* åœ¨slabç»„åˆ†é…æ–°çš„slabåˆ†é…å™¨ */
+///* ÔÚslab×é·ÖÅäĞÂµÄslab·ÖÅäÆ÷ */
 //el_SlabDispr_t * ELOS_SlabDispenserAlloc(void *Slab_PoolSurf)
 //{
 //    el_SlabPoolHead_t *pSlabHead = (el_SlabPoolHead_t*)Slab_PoolSurf;
@@ -113,11 +113,11 @@
 //    if( SlabDisprToAlloc == NULL ) return (SlabDisprToAlloc *)0;
 
 //    memset( (void *)SlabDisprToAlloc, 0, ZoneSizeNeed);
-//    /* slabåˆ†é…å™¨åˆå§‹åŒ– */
+//    /* slab·ÖÅäÆ÷³õÊ¼»¯ */
 //    SLAB_DISPENSER_INIT(SlabDisprToAlloc);
-//    /* æ·»åŠ åˆ°ç»¿ç€è‰²å™¨åˆ—è¡¨ */
+//    /* Ìí¼Óµ½ÂÌ×ÅÉ«Æ÷ÁĞ±í */
 //    list_add_tail( &SlabDisprToAlloc->SlabNode, &pSlabHead->ckGreenListHead);
-//    /* slabæ•°æ®æ± é¢æŒ‡é’ˆåˆå§‹åŒ– */
+//    /* slabÊı¾İ³ØÃæÖ¸Õë³õÊ¼»¯ */
 //    SlabDisprToAlloc->obj_pool_data = (void *)( SlabDisprToAlloc + 1 );
 //    SlabDisprToAlloc->SlabObjCnt = pSlabHead->SlabZoneSize/pSlabHead->SlabObjSize;
 //    SlabDisprToAlloc->SlabObjUsed = 0;
@@ -131,7 +131,7 @@
 //    return SlabDisprToAlloc;
 //}
 
-///* åœ¨slabç»„é‡Šæ”¾ä¸€ä¸ªslabåˆ†é…å™¨ */
+///* ÔÚslab×éÊÍ·ÅÒ»¸öslab·ÖÅäÆ÷ */
 //EL_UINT * ELOS_SlabDispenserFree(el_SlabDispr_t * pSlabDispr)
 //{
 //    el_SlabPoolHead_t *pSlabHead;
@@ -141,7 +141,7 @@
 //    OS_Enter_Critical_Check();
 //    pSlabHead = (el_SlabPoolHead_t *)pSlabDispr->SlabOwner;
 //    pSlabHead->SlabZoneMountedCnt --;
-//    /* ä»ç€è‰²å™¨åˆ é™¤ */
+//    /* ´Ó×ÅÉ«Æ÷É¾³ı */
 //    list_del( (struct list_head *)&SlabDisprToFree->SlabNode );
 //    if(SlabDisprToFree->cr_type == SLAB_CR_GREEN)
 //        pSlabHead->GreenSlabCnt --;
@@ -155,14 +155,14 @@
 //    return (EL_UINT)EL_RESULT_OK;
 //}
 
-///* SLABæ§åˆ¶å—äº‹ä»¶å¤„ç† */
+///* SLAB¿ØÖÆ¿éÊÂ¼ş´¦Àí */
 //EL_CHAR ELOS_SlabDisprEventCallBack(el_SlabPoolHead_t *pSlabHead,el_slab_callevt_t callevt_type)
 //{
 //    EL_CHAR ret = 0;
 //    switch(callevt_type)
 //    {
 //        case CURRENT_SLAB_FULL:
-//            /* å°è¯•ç”³è¯·æ–°çš„å†…å­˜å— */
+//            /* ³¢ÊÔÉêÇëĞÂµÄÄÚ´æ¿é */
 //            if(!ELOS_SlabDispenserAlloc((void *)pSlabHead)) ret = -1;
 //            break;
 //        case MODIFY_SLAB_COLOR:
@@ -171,7 +171,7 @@
 //    return ret;
 //}
 
-///* å‘slabåˆ†ç»„æ·»åŠ æ–°çš„slabå— */
+///* Ïòslab·Ö×éÌí¼ÓĞÂµÄslab¿é */
 //EL_UINT ELOS_SlabGroupAdd(el_SlabPoolHead_t *pSlabHead, EL_UINT obj_size)
 //{
 //    el_SlabDispr_t * SlabDisprToAlloc = NULL;
@@ -185,7 +185,7 @@
 //    return (SlabDisprToAlloc == NULL)?EL_RESULT_ERR:EL_RESULT_OK;
 //}
 
-///* ç€è‰²å™¨åˆ—è¡¨è°ƒæ•´ */
+///* ×ÅÉ«Æ÷ÁĞ±íµ÷Õû */
 //EL_UINT ELOS_SlabMvColorNodeToAnother(el_SlabDispr_t * pSlabDispr,\
 //                fELOS_SlabColorConvIdxTake SlabColorConvIdxTake)
 //{
@@ -193,24 +193,24 @@
 //    el_SlabPoolHead_t * pSlabDipsrOwner;
 //    if(pSlabDispr == NULL)  return (EL_UINT)EL_RESULT_ERR;
 
-//    pSlabDipsrOwner = OS_SLAB_DIPSR_OWNER_GET(pSlabDispr);/* è·å–slabåˆ†é…å™¨çš„æŒæœ‰è€… */
+//    pSlabDipsrOwner = OS_SLAB_DIPSR_OWNER_GET(pSlabDispr);/* »ñÈ¡slab·ÖÅäÆ÷µÄ³ÖÓĞÕß */
 
-//    pListNode = pSlabDispr->SlabNode;/* slabåˆ†é…å™¨èŠ‚ç‚¹ */
+//    pListNode = pSlabDispr->SlabNode;/* slab·ÖÅäÆ÷½Úµã */
 
 //    OS_Enter_Critical_Check();
-//    /* ä»åŸç€è‰²å™¨åˆ—è¡¨åˆ é™¤ */
+//    /* ´ÓÔ­×ÅÉ«Æ÷ÁĞ±íÉ¾³ı */
 //    list_del( pListNode );
 //    cvIdx = SlabColorConvIdxTake(pSlabDispr);
-//    /* æ·»åŠ åˆ°æ–°çš„ç€è‰²å™¨åˆ—è¡¨ */
+//    /* Ìí¼Óµ½ĞÂµÄ×ÅÉ«Æ÷ÁĞ±í */
 //    list_add_tail( pListNode, pSlabDipsrOwner->ckYellowListHead );
-//    /* æ›´æ–°ç€è‰²å™¨æ•°ç›® */
+//    /* ¸üĞÂ×ÅÉ«Æ÷ÊıÄ¿ */
 //    pSlabDispr->SlabObjUsed += cvIdx;
 //    OS_Exit_Critical_Check();
 
 //    return (EL_UINT)EL_RESULT_OK; 
 //}
 
-///* ä»slabåŒºåˆ†é…ä¸€ä¸ªobj */
+///* ´ÓslabÇø·ÖÅäÒ»¸öobj */
 //void * ELOS_SlabObjAlloc(el_SlabDispr_t * pSlabDispr)
 //{
 //    void * pObjAlloced;
@@ -220,11 +220,11 @@
 
 //    OS_Enter_Critical_Check();
 //    ASSERT( pSlabDispr->SlabObjCnt >= pSlabDispr->SlabObjUsed );
-//    /* ä»ä½å›¾è¡¨ä¸­æ‰¾å‡º */
+//    /* ´ÓÎ»Í¼±íÖĞÕÒ³ö */
 //    ObjIndex = (pSlabDispr->SlabObjCnt == pSlabDispr->SlabObjUsed)?0:\
 //                ELOS_SlabSDisprBitmapFindBitAndSet(pSlabDispr);
 //    if(ObjIndex == (EL_UINT)0){
-//        /* é‡æ–°åˆ†é…ä¸€ä¸ªslabåŒºå— */
+//        /* ÖØĞÂ·ÖÅäÒ»¸öslabÇø¿é */
 //        //if( EL_RESULT_ERR == ELOS_SlabGroupAdd(el_SlabPoolHead_t *pSlabHead, EL_UINT obj_size)){
 //        //    return NULL;
 //        //}
@@ -233,13 +233,13 @@
 //        else return NULL;
 //    }
 //    pObjAlloced = pSlabDispr->obj_pool_data + ObjIndex * pHead->SlabObjSize;
-//    /* æ›´æ–°ç€è‰²å™¨åˆ—è¡¨ */
+//    /* ¸üĞÂ×ÅÉ«Æ÷ÁĞ±í */
 //    ELOS_SlabMvColorNodeToAnother(pSlabDispr,ELOS_SlabColorConvDeepIdxTake);
 //    OS_Exit_Critical_Check();
 
 //    return pObjAlloced?pObjAlloced:NULL;
 //}
-///* ä»slabåŒºé‡Šæ”¾ä¸€ä¸ªobj */
+///* ´ÓslabÇøÊÍ·ÅÒ»¸öobj */
 //void ELOS_SlabFreeObject(el_SlabDispr_t * pSlabDispr, void *pObj)
 //{
 //    EL_UINT ObjIndex;
@@ -251,12 +251,12 @@
 //    OS_Enter_Critical_Check();
 //    ELOS_SlabSDisprBitmapFindBitAndClear( pSlabDispr,ObjIndex );
 //    pSlabDispr->SlabObjUsed --;
-//    /* ç€è‰²å™¨åˆ—è¡¨è°ƒæ•´ */
+//    /* ×ÅÉ«Æ÷ÁĞ±íµ÷Õû */
 //    pSlabDispr->NotifySlabCtrEvt(pHead,MODIFY_SLAB_COLOR);
 //    OS_Exit_Critical_Check();
 //}
 
-///* åˆ†é…ä¸€ä¸ªobj,å¿…é¡»ä¸ºslabåˆ†ç»„é¦–åœ°å€ */
+///* ·ÖÅäÒ»¸öobj,±ØĞëÎªslab·Ö×éÊ×µØÖ· */
 //void *ELOS_SlabMemAlloc(void * SlabPoolSurf,EL_UINT NeedAllocSize)
 //{
 //    el_SlabPoolHead_t *SlabHead = (el_SlabPoolHead_t *)SlabPoolSurf;
@@ -264,19 +264,19 @@
 //    void * pObj = NULL;
 //    if( (SlabPoolSurf== NULL) || (NeedAllocSize == 0) ) return NULL;
 
-//    /* é‡‡ç”¨æœ€å°é€‚é…ç®—æ³• */
+//    /* ²ÉÓÃ×îĞ¡ÊÊÅäËã·¨ */
 //    for(int s_idx = 0 ; s_idx < ELOS_SLAB_CHUNK_MAX_LEVEL; s_idx++){
 //        SlabHead += s_idx;
-//        /* ä¿è¯å†…å­˜ä½¿ç”¨ç‡å¤§äº50% */
+//        /* ±£Ö¤ÄÚ´æÊ¹ÓÃÂÊ´óÓÚ50% */
 //        if( (SlabHead->SlabObjSize >= NeedAllocSize) &&\
 //             (SlabHead->SlabObjSize <= 2*NeedAllocSize) ){
-//            /* ä¼˜å…ˆä»é»„é“¾åˆ†é…ï¼Œæ¥ç€æ˜¯ç»¿é“¾ï¼Œä¸å¤Ÿå°±åˆ†é…æ–°çš„slabåŒºå— */
+//            /* ÓÅÏÈ´Ó»ÆÁ´·ÖÅä£¬½Ó×ÅÊÇÂÌÁ´£¬²»¹»¾Í·ÖÅäĞÂµÄslabÇø¿é */
 //            pSlabZoneToAllocHeadNode = &SlabHead->ckYellowListHead;
 //            if( list_empty( pSlabZoneToAllocHeadNode ) ){
-//                /* é»„é“¾æ²¡æœ‰å°±ä»ç»¿é“¾åˆ†é… */
+//                /* »ÆÁ´Ã»ÓĞ¾Í´ÓÂÌÁ´·ÖÅä */
 //                pSlabZoneToAllocHeadNode = &SlabHead->ckGreenListHead;
 //                if( list_empty( pSlabZoneToAllocHeadNode ) ){
-//                    /* æ²¡æœ‰ç»¿é“¾å°±ä»ç³»ç»Ÿå†…å­˜ç”³è¯· */
+//                    /* Ã»ÓĞÂÌÁ´¾Í´ÓÏµÍ³ÄÚ´æÉêÇë */
 //                    if((EL_UINT)EL_RESULT_ERR ==  ELOS_SlabGroupAdd(SlabHead, SlabHead->SlabObjSize)){
 //                        return (void *)0;
 //                    }else{
@@ -292,23 +292,23 @@
 //    return (void *)pObj;
 //}
 
-///* é‡Šæ”¾ä¸€ä¸ªobj */
+///* ÊÍ·ÅÒ»¸öobj */
 //void ELOS_SlabMemFree(void *pObj)
 //{
 //    EL_UINT itemIndex;EL_UCHAR ** SlabDisprAddr;
 //    if(pObj == NULL) return;
 //    EL_UINT ObjIdx;
-//    /* è·å–objæ‰€åœ¨slabæ§åˆ¶å—ï¼Œslabåˆ†é…å™¨é¦–åœ°å€ */
+//    /* »ñÈ¡objËùÔÚslab¿ØÖÆ¿é£¬slab·ÖÅäÆ÷Ê×µØÖ· */
 //    ELOS_GetObjSlabDisprAddr(EL_UCHAR *plabDisprAddr,&ObjIdx);
 
-//    //EL_UINT itemSize = pSlabHead->SlabObjSize;/* è·å–objå¤§å° */
-//    //itemIndex = pSlabHead->SlabZoneSize/itemSize;/* è·å–è¯¥objæ‰€åœ¨ä½å›¾çš„ç´¢å¼• */
+//    //EL_UINT itemSize = pSlabHead->SlabObjSize;/* »ñÈ¡obj´óĞ¡ */
+//    //itemIndex = pSlabHead->SlabZoneSize/itemSize;/* »ñÈ¡¸ÃobjËùÔÚÎ»Í¼µÄË÷Òı */
 //    ELOS_SlabMvColorNodeToAnother(pSlabDispr);
 //}
 
-///* ç”±objè·å–æ‰€åœ¨slabåˆ†é…å™¨åœ°å€ */
+///* ÓÉobj»ñÈ¡ËùÔÚslab·ÖÅäÆ÷µØÖ· */
 //void * ELOS_GetObjSlabDisprAddr(EL_UCHAR *plabDisprAddr,EL_UINT *pObjIdx)
 //{
 //    
-//    *pObjIdx = 0;/* objæ‰€åœ¨çš„slabç´¢å¼• */
+//    *pObjIdx = 0;/* objËùÔÚµÄslabË÷Òı */
 //}
