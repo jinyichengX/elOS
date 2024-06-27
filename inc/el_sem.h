@@ -12,7 +12,7 @@ typedef struct stSemaphore
 }el_sem_t;
 extern void el_sem_init(el_sem_t * sem,uint32_t value);
 #if SEM_OBJ_STATIC == 1
-extern void * el_sem_creat(uint32_t value);
+extern void * el_sem_create(uint32_t value);
 #endif
 extern EL_RESULT_T el_sem_take(el_sem_t *sem,uint32_t tick);
 extern EL_RESULT_T el_sem_trytake(el_sem_t *sem);

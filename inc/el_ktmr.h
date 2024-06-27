@@ -11,6 +11,7 @@
 #include "el_kheap.h"
 #include "el_sem.h"
 
+#if EL_USE_KTIMER
 /* 放置定时器对象的容器类型 */
 #define ktmr_mng_container_t avl_t
 
@@ -61,6 +62,7 @@ extern kTimer_t * kTimerCreate(const char * name,\
 				extern EL_RESULT_T kTimerStart(kTimer_t * tmr,sys_tick_t count_down);
 extern EL_RESULT_T kTimerStart(kTimer_t * tmr,sys_tick_t count_down);
 extern void kTimerStop(kTimer_t * tmr);
+#endif
 #endif
 
 

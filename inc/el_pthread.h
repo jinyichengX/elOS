@@ -69,6 +69,12 @@ typedef struct EL_PTHREAD_CONTROL_BLOCK
 	EL_UINT pthread_id;								/* 线程id */
 	void * block_holder;							/* 被持有对象的节点 */
 	EL_UINT PendFlags;								/* 同步互斥组阻塞标志 */
+
+#if EL_USE_EVENTFLAG
+	/* 需要满足的事件标志 */
+	uint32_t event_wait;						
+	bool andor;
+#endif
 }EL_PTCB_T;
 
 typedef struct EL_OS_AbsolutePendingTickCount

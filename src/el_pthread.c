@@ -5,6 +5,9 @@
 #include <string.h>
 #include "el_ktmr.h"
 #include "kparam.h"
+
+#define os_alloc malloc
+#define os_free  free
 /* 内核列表 */
 LIST_HEAD_CREAT(*KERNEL_LIST_HEAD[EL_PTHREAD_STATUS_COUNT]);/* 内核列表指针 */
 LIST_HEAD_CREAT(PRIO_LISTS[EL_MAX_LEVEL_OF_PTHREAD_PRIO]);/* 线程就绪列表00 */
@@ -58,7 +61,7 @@ void EL_DefultPthread(void * arg)
 	 {
 	  /* 堆内存的所有操作都不可重入 */
 	  OS_Enter_Critical_Check();
-	  free((void *)(((EL_PTCB_T *)(PthreadToDeleteListHead.next))->pthread_stack_top));
+	  os_free((void *)(((EL_PTCB_T *)(PthreadToDeleteListHead.next))->pthread_stack_top));
 	  list_del(PthreadToDeleteListHead.next);
 	  OS_Exit_Critical_Check();
 	 }
@@ -94,6 +97,7 @@ void EL_PrioListInitialise(void)
  ***********************************************************************/
 void EL_OS_Initialise(void)
 {
+	int i;
 	/* 初始化线程就绪列表 */
 	(void)EL_PrioListInitialise();
 	/* 初始化阻塞延时列表 */
@@ -118,12 +122,16 @@ void EL_OS_Initialise(void)
 	/* 内存堆初始化 */
 	sysheap_hcb = Kheap_Initialise((void *)sys_heap,(void *)(sys_heap+sizeof(sys_heap)));
 	/* 为内核定时器分配内存池并初始化 */
-	if(ELOS_RequestForPoolWait(EL_KOBJ_kTIMER,0) == NULL)
-	{
-		printf("alloc for kobj timer err");
+	for(i = 0;i < (int)EL_KOBJ_TYPE_MAX;i++){
+		if(ELOS_RequestForPoolWait((EL_KOBJTYPE_T)i,0) == NULL)
+		{
+			printf("alloc for kobj timer err");
+		}
 	}
+#if EL_USE_KTIMER
 	/* 内核定时器初始化 */
 	ktmr_module_init();
+#endif
 	/* 内核变量初始化 */
 	g_critical_nesting = 0;
 }
@@ -157,7 +165,7 @@ EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,pthread_entry en
 	}
     /* 分配线程栈 */
 	OS_Enter_Critical_Check();
-    PSTACK = (EL_STACK_TYPE *)malloc(NeededSize);
+    PSTACK = (EL_STACK_TYPE *)os_alloc(NeededSize);
 	if(NULL == PSTACK)	return EL_RESULT_ERR;
     /* 将线程栈底向下作4字节对齐 */
 	PSTACK_TOP = PSTACK = (EL_STACK_TYPE *)((EL_STACK_TYPE)PSTACK+NeededSize);
@@ -325,7 +333,7 @@ void EL_Pthread_Pend_Release(void)
 				   &PRIO_LISTS[PTHREAD_NEXT_RELEASE_PRIO_GET(PendListHead)]);
 	 /* 删除并释放阻塞头 */
 	 list_del(PendListHead.next);
-	 free(p_NodeToDel);
+	 kobj_free(EL_KOBJ_TICKPENDING,p_NodeToDel);
 	}
 }
 /**********************************************************************
@@ -352,7 +360,7 @@ void EL_Pthread_Sleep(EL_UINT TickToDelay)
 	 temp_overflow_tick ++;
 	temp_abs_tick = temp_abs_tick + TickToDelay;
 	
-	if (NULL == (PendingObj = (TickPending_t *)malloc(SZ_TickPending_t))){
+	if (NULL == (PendingObj = (TickPending_t *)kobj_alloc(EL_KOBJ_TICKPENDING))){
 	 OS_Exit_Critical_Check();
 	 return;/* 没有足够的管理空间，线程不可延时，退出，继续运行当前线程 */
 	}
@@ -407,7 +415,7 @@ EL_RESULT_T EL_Pthread_Suspend(EL_PTCB_T *PthreadToSuspend)
 	 OS_Exit_Critical_Check();/* 如果是死亡线程直接退出 */
 	 return EL_RESULT_ERR;
 	}
-	if (NULL == (SuspendObj = (Suspend_t *)malloc(SZ_Suspend_t))){
+	if (NULL == (SuspendObj = (Suspend_t *)kobj_alloc(EL_KOBJ_SUSPEND))){
 	 OS_Exit_Critical_Check();
 	 return EL_RESULT_ERR;/* 没有足够的管理空间，不可挂起，退出，继续运行当前线程 */
 	}
@@ -468,7 +476,7 @@ void EL_Pthread_Resume(EL_PTCB_T *PthreadToResume)
 	 KERNEL_LIST_HEAD[EL_PTHREAD_READY]+ptcb->pthread_prio);
 	}
 	list_del((LIST_HEAD *)ptcb->block_holder);
-	free(ptcb->block_holder);
+	kobj_free(EL_KOBJ_SUSPEND,ptcb->block_holder);
 	if(p_rec_node != NULL) 	ptcb->block_holder = p_rec_node;
 	OS_Exit_Critical_Check();
 	return;
@@ -579,7 +587,7 @@ void EL_Pthread_EventWait(EL_PTCB_T * thread,PendType_t type,EL_UINT tick,int * 
 	 temp_overflow_tick ++;
 	temp_abs_tick = temp_abs_tick + tick;
 	
-	if (NULL == (PendingObj = (TickPending_t *)malloc(SZ_TickPending_t))){
+	if (NULL == (PendingObj = (TickPending_t *)kobj_alloc(EL_KOBJ_TICKPENDING))){
 	 OS_Exit_Critical_Check();
 	 return;
 	}
@@ -623,7 +631,7 @@ void EL_Pthread_EventWakeup(EL_PTCB_T * thread)
 				  KERNEL_LIST_HEAD[EL_PTHREAD_READY]+thread->pthread_prio);
 	/* 删除并释放阻塞头 */
 	list_del(&PendingObj->TickPending_Node);
-	free((void *)PendingObj);
+	kobj_free(EL_KOBJ_TICKPENDING,(void *)PendingObj);
 	
 	OS_Exit_Critical_Check();
 }

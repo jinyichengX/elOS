@@ -1,6 +1,7 @@
 #include "el_kpool_static.h"
 #include "el_mutex_lock.h"
 #include "el_pthread.h"
+#include "el_kobj.h"
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -72,7 +73,7 @@ EL_RESULT_T EL_Lite_Semaphore_Proberen(lite_sem_t * sem,\
 	 ASSERT(Cur_ptcb->pthread_state != EL_PTHREAD_SUSPEND);
 
 	 /* 挂起当前线程 */
-	 if (NULL == (SuspendObj = (Suspend_t *)malloc(SZ_Suspend_t))){
+	 if (NULL == (SuspendObj = (Suspend_t *)kobj_alloc(EL_KOBJ_SUSPEND))){
 	  OS_Exit_Critical_Check();
 	  return EL_RESULT_ERR;
 	 }

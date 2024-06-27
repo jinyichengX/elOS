@@ -22,7 +22,7 @@ void el_sem_init(el_sem_t * sem,uint32_t value)
 }
 
 /**********************************************************************
- * 函数名称： el_sem_creat
+ * 函数名称： el_sem_create
  * 功能描述： 创建并初始化信号量
  * 输入参数： value : 信号量初始计数
  * 输出参数： 无
@@ -32,12 +32,26 @@ void el_sem_init(el_sem_t * sem,uint32_t value)
  * 2024/06/11	    V1.0	  jinyicheng	      创建
  ***********************************************************************/
 #if SEM_OBJ_STATIC == 1
-void * el_sem_creat(uint32_t value)
+void * el_sem_create(uint32_t value)
 {
+	EL_kobj_info_t kobj;
 	el_sem_t * sem = NULL;
-	sem = (el_sem_t * )ELOS_RequestForPoolWait(EL_KOBJ_SEM,0);
-	if(!sem) return NULL; 
+	
+	OS_Enter_Critical_Check();
+	/* 检查对象池是否支持事件标志 */
+	if(EL_RESULT_OK != ELOS_KobjStatisticsGet( EL_KOBJ_SEM,&kobj)){
+		OS_Exit_Critical_Check();
+		return NULL;
+	}
+	sem = (el_sem_t * )kobj_alloc( EL_KOBJ_SEM );
+	
+	if((el_sem_t * )0 == sem){
+		OS_Exit_Critical_Check();
+		return NULL; 
+	}
+	OS_Exit_Critical_Check();
 	el_sem_init(sem,value);
+	
 	return (void *)sem;
 }
 #endif
@@ -103,7 +117,7 @@ EL_RESULT_T el_sem_take(el_sem_t *sem,uint32_t tick)
 	   ASSERT(ptcb->pthread_state != EL_PTHREAD_SUSPEND);
 
 	   /* 挂起当前线程 */
-	   if (NULL == (SuspendObj = (Suspend_t *)malloc(SZ_Suspend_t))){
+	   if (NULL == (SuspendObj = (Suspend_t *)kobj_alloc(EL_KOBJ_SUSPEND))){
 	    OS_Exit_Critical_Check();
 		return EL_RESULT_ERR;
 	   }

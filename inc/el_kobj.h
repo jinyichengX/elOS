@@ -7,28 +7,33 @@
 #include "el_speedpipe.h"
 #include "el_ktmr.h"
 #include "el_sem.h"
+#include "el_event_flag.h"
 #include "elightOS_config.h"
 
 typedef enum{
+#if 1
 	EL_KOBJ_PTCB,
-	
-#if EL_USE_THREAD_PENDING
+#endif
+#if EL_USE_THREAD_PENDING && THREAD_PENDING_OBJ_STATIC
     EL_KOBJ_TICKPENDING,
 #endif
-#if EL_USE_THREAD_SUSPEND
+#if EL_USE_THREAD_SUSPEND && THREAD_SUSPEND_OBJ_STATIC
     EL_KOBJ_SUSPEND,
 #endif
-#if EL_USE_MUTEXLOCK
+#if EL_USE_MUTEXLOCK 	  && MUTEXLOCK_OBJ_STATIC
     EL_KOBJ_MUTEXLOCK,
 #endif
-#if EL_USE_SPEEDPIPE
+#if EL_USE_SPEEDPIPE	  && SPEEDPIPE_OBJ_STATIC
     EL_KOBJ_SPEEDPIPE,
 #endif
-#if EL_USE_KTIMER
+#if EL_USE_KTIMER 		  && KTIMER_OBJ_STATIC
 	EL_KOBJ_kTIMER,
 #endif
-#if EL_USE_SEM
+#if EL_USE_SEM 		  	  && SEM_OBJ_STATIC
 	EL_KOBJ_SEM,
+#endif
+#if EL_USE_EVENTFLAG 	  && EVENTFLAG_OBJ_STATIC
+	EL_KOBJ_EVTFLG,
 #endif
 #if 1
     EL_KOBJ_TYPE_MAX

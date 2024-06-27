@@ -9,6 +9,8 @@
 /* 内核定时器使用链表/跳表/AVL树/红黑树管理 */
 #include "el_ktmr.h"
 
+#if EL_USE_KTIMER
+
 extern EL_G_SYSTICK_TYPE systick_get(void);
 #if KTMR_THREAD_SHARE == 0
 el_sem_t g_kmtr_sem;
@@ -123,14 +125,17 @@ kTimerCreate(const char * name,\
 	
 	OS_Enter_Critical_Check();
 	/* 检查对象池是否支持内核定时器 */
-	if(EL_RESULT_OK != ELOS_KobjStatisticsGet( EL_KOBJ_kTIMER,&kobj))
+	if(EL_RESULT_OK != ELOS_KobjStatisticsGet( EL_KOBJ_kTIMER,&kobj)){
+		OS_Exit_Critical_Check();
 		return NULL;
+	}
 	/* 分配一个内核定时器 */
-	ktmr = (void *)kobj_alloc( EL_KOBJ_kTIMER );
-	if(NULL == ktmr) return NULL;
-	/* 初始化定时器 */
-	kTimerInitialise(ktmr,type,sub_type,timeout_tick,time_cnt,usr_callback,args);
-	
+	ktmr = (kTimer_t *)kobj_alloc( EL_KOBJ_kTIMER );
+	if(NULL == ktmr){
+		OS_Exit_Critical_Check();
+		return NULL;
+	}
+
 #if KTMR_THREAD_SHARE == 0/* 多定时器共享线程 */
 
 	/* 从内核对象池取线程控制块 */
@@ -156,6 +161,8 @@ kTimerCreate(const char * name,\
 	
 #endif
 	OS_Exit_Critical_Check();
+	/* 初始化定时器 */
+	kTimerInitialise(ktmr,type,sub_type,timeout_tick,time_cnt,usr_callback,args);
 	return ktmr;
 }
 #endif
@@ -214,7 +221,7 @@ void pthread_ktmr_sched( void * arg )
 				}
 			}
 			if(ktmr_timeout->period_timeout_type == 1)
-				ktmr_timeout->schdline = ktmr_timeout->schdline + ktmr_timeout->timeout_tick;//不建议选这个模式
+				ktmr_timeout->schdline = ktmr_timeout->schdline + ktmr_timeout->timeout_tick;//不建议选这个模式，如果定时器任务执行周期大于定时周期，那么选择这个模式会出现bug，不适用于定时周期短的任务
 			else
 				ktmr_timeout->schdline = systick_get() + ktmr_timeout->timeout_tick;//建议选这个模式
 			el_sem_take(&sem_ktmrCont,0xffffffff);
@@ -293,11 +300,17 @@ void kTimerStop(kTimer_t * tmr)
 	el_sem_release(&sem_ktmrCont);
 }
 
+#if KTIMER_OBJ_STATIC == 1
 /* 释放定时器 */
 void kTimerDestroy(kTimer_t * tmr)
 {
+	if( tmr == NULL ) return;
+	/* 停止定时器 */
+	kTimerStop(tmr);
+	/* 释放定时器对象 */
+	kobj_free(EL_KOBJ_kTIMER,(void * )tmr);
 }
-
+#endif
 ///*测试用例*/
 //void ledtrl(void *arg)
 //{
@@ -316,3 +329,5 @@ void kTimerDestroy(kTimer_t * tmr)
 //	
 //	kTimerStart(timer1,0);
 //}
+
+#endif
