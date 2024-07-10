@@ -1,4 +1,4 @@
-#include "el_kpool_static.h"
+#include "el_kpool.h"
 #include "el_pthread.h"
 #include "el_debug.h"
 #include "el_list_sort.h"
@@ -6,8 +6,8 @@
 #include "el_ktmr.h"
 #include "kparam.h"
 
-#define os_alloc malloc
-#define os_free  free
+#define os_alloc(sz) hp_alloc(sysheap_hcb,sz)
+#define os_free(p)   hp_free(sysheap_hcb,(p))
 /* 内核列表 */
 LIST_HEAD_CREAT(*KERNEL_LIST_HEAD[EL_PTHREAD_STATUS_COUNT]);/* 内核列表指针 */
 LIST_HEAD_CREAT(PRIO_LISTS[EL_MAX_LEVEL_OF_PTHREAD_PRIO]);/* 线程就绪列表00 */
@@ -40,7 +40,7 @@ static EL_PTCB_T EL_Default_Pthread;/* 系统默认线程，不可删除 */
 #if EL_CALC_CPU_USAGE_RATE
 EL_FLOAT CPU_UsageRate = CPU_MAX_USAGE_RATE;/* cpu使用率 */
 #endif
-static EL_PTHREAD_PRIO_TYPE first_start_prio = EL_MAX_LEVEL_OF_PTHREAD_PRIO;/* 第一个调度的线程的优先级 */
+static EL_PTHREAD_PRIO_TYPE first_start_prio = EL_MAX_LEVEL_OF_PTHREAD_PRIO - 1;/* 第一个调度的线程的优先级 */
 extern EL_UINT g_critical_nesting; /* 临界区嵌套计数 */
 /**********************************************************************
  * 函数名称： EL_DefultPthread
@@ -97,7 +97,7 @@ void EL_PrioListInitialise(void)
  ***********************************************************************/
 void EL_OS_Initialise(void)
 {
-	int i;
+	int idx;
 	/* 初始化线程就绪列表 */
 	(void)EL_PrioListInitialise();
 	/* 初始化阻塞延时列表 */
@@ -111,22 +111,18 @@ void EL_OS_Initialise(void)
 	KERNEL_LIST_HEAD[EL_PTHREAD_PENDING] = &PendListHead;
 	KERNEL_LIST_HEAD[EL_PTHREAD_SUSPEND] = &PthreadToSuspendListHead;
 	/* 创建空闲线程 */
-	EL_Pthread_Create(&EL_Default_Pthread,"IDLE",EL_DefultPthread,\
+	EL_Pthread_Initialise(&EL_Default_Pthread,"IDLE",EL_DefultPthread,\
 	MIN_PTHREAD_STACK_SIZE+EL_CFG_DEFAULT_PTHREAD_STACK_SIZE,\
 	EL_MAX_LEVEL_OF_PTHREAD_PRIO-1,NULL);
-	/* 静态内存池初始化 */
-	EL_stKpoolInitialise(EL_Pthread_Pendst_Pool,\
-		EL_Pthread_Pendst_Pool_Size,SZ_TickPend_t);
-	EL_stKpoolInitialise(EL_Pthread_Suspendst_Pool,\
-		EL_Pthread_Suspendst_Pool_Size,SZ_Suspend_t);
+
 	/* 内存堆初始化 */
-	sysheap_hcb = Kheap_Initialise((void *)sys_heap,(void *)(sys_heap+sizeof(sys_heap)));
-	/* 为内核定时器分配内存池并初始化 */
-	for(i = 0;i < (int)EL_KOBJ_TYPE_MAX;i++){
-		if(ELOS_RequestForPoolWait((EL_KOBJTYPE_T)i,0) == NULL)
-		{
-			printf("alloc for kobj timer err");
-		}
+	sysheap_hcb = hp_init((void *)sys_heap,(void *)(sys_heap+sizeof(sys_heap)));
+	/* 为内核对象分配内存池并初始化 */
+	for(idx = 0;idx < (int)EL_KOBJ_TYPE_MAX;idx++){
+	 if(kobj_pool_request((EL_KOBJTYPE_T)idx,0) == NULL)
+	 {
+	  printf("alloc for kobj err");
+	 }
 	}
 #if EL_USE_KTIMER
 	/* 内核定时器初始化 */
@@ -136,7 +132,7 @@ void EL_OS_Initialise(void)
 	g_critical_nesting = 0;
 }
 /**********************************************************************
- * 函数名称： EL_Pthread_Create
+ * 函数名称： EL_Pthread_Initialise
  * 功能描述： 创建线程，只支持在主线程创建
  * 输入参数： ptcb ：已创建的线程控制块的指针
              name ：线程名
@@ -150,7 +146,7 @@ void EL_OS_Initialise(void)
  * 2024/02/05	    V1.0	  jinyicheng	      创建
  * 2024/06/22		V1.0      jinyicheng		  添加线程私有参数	
  ***********************************************************************/
-EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,pthread_entry entry,\
+EL_RESULT_T EL_Pthread_Initialise(EL_PTCB_T *ptcb,const char * name,pthread_entry entry,\
 	EL_UINT pthread_stackSz,EL_PTHREAD_PRIO_TYPE prio,void * args)
 {
 	EL_STACK_TYPE *PSTACK,*PSTACK_TOP = NULL;
@@ -194,6 +190,24 @@ EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,const char * name,pthread_entry en
 	 first_start_prio = ptcb->pthread_prio;
     return EL_RESULT_OK;
 }
+
+EL_RESULT_T EL_Pthread_Create(const char * name,pthread_entry entry,\
+	EL_UINT pthread_stackSz,EL_PTHREAD_PRIO_TYPE prio,void * args)
+{
+	kobj_info_t kobj;
+	EL_PTCB_T * pcb = NULL;
+	
+	OS_Enter_Critical_Check();
+	/* 检查对象池是否支持线程对象 */
+	if(EL_RESULT_OK != kobj_check(EL_KOBJ_PTCB,&kobj))
+	 return EL_RESULT_ERR;
+	/* 分配一个线程对象 */
+	pcb = (void *)kobj_alloc( EL_KOBJ_PTCB );
+	OS_Exit_Critical_Check();
+	if(NULL == pcb) return EL_RESULT_ERR;
+	return EL_Pthread_Initialise(pcb,name,entry,pthread_stackSz,prio,args);
+}
+
 /**********************************************************************
  * 函数名称： EL_OS_Start_Scheduler
  * 功能描述： 启动线程调度
@@ -325,6 +339,7 @@ void EL_Pthread_Pend_Release(void)
 	 if( container->PendType != EVENT_TYPE_SLEEP ){
 	  /* 等待同步量超时 */
 	  *(container->result) = (int)EL_RESULT_ERR;
+	  list_del(&(container->Pthread->pthread_node));
 	 }
 	 /* 设置为就绪态 */
 	 ((TickPending_t *)PendListHead.next)->Pthread->pthread_state = EL_PTHREAD_READY;

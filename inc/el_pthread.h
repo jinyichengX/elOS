@@ -106,12 +106,14 @@ typedef struct EL_OS_SuspendStruct
 #define PTHREAD_STATE_SET(PPTCB,STATE) 				(PPTCB->pthread_state = STATE)/* 设置线程状态(由ptcb*) */
 #define PTHREAD_STATE_GET(PPTCB) 					(PPTCB->pthread_state)/* 读取线程状态(由ptcb*) */
 
-extern EL_RESULT_T EL_Pthread_Create(EL_PTCB_T *ptcb,\
+extern EL_RESULT_T EL_Pthread_Initialise(EL_PTCB_T *ptcb,\
 									const char * name,\
 									pthread_entry pthread_entry,\
 									EL_UINT pthread_stackSz,\
 									EL_PTHREAD_PRIO_TYPE pthread_prio,\
 									void *args);
+extern EL_RESULT_T EL_Pthread_Create(const char * name,pthread_entry entry,\
+	EL_UINT pthread_stackSz,EL_PTHREAD_PRIO_TYPE prio,void * args);
 extern void EL_OS_Start_Scheduler(void);
 extern void EL_PrioListInitialise(void);
 extern void EL_OS_Initialise(void);
@@ -140,4 +142,3 @@ extern EL_UINT g_TickSuspend_Count;/* 一单位内系统tick */
 extern EL_FLOAT CPU_UsageRate;
 #endif
 #endif
-

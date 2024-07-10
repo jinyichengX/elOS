@@ -32,7 +32,7 @@ extern void portStartScheduler(void);
 extern void OS_Enter_Critical_Check(void);
 extern void OS_Exit_Critical_Check(void);
 
-//extern EL_UINT g_critical_nesting;
+//extern EL_UINT g_critical_nesting;u
 /* 内核寄存器的定义 */
 #endif // ! PORT_H.
 

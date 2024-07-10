@@ -65,7 +65,7 @@ static EL_RESULT_T kTimerManageThreadCreate(EL_UINT stack_size)
 	static EL_PTCB_T ktmr_sched;
 	EL_RESULT_T ret;
 
-	ret = EL_Pthread_Create(&ktmr_sched,"ktmr_sched",pthread_ktmr_sched,stack_size,0,NULL);
+	ret = EL_Pthread_Initialise(&ktmr_sched,"ktmr_sched",pthread_ktmr_sched,stack_size,0,NULL);
 	return ret;
 }		
 /* 定时器模块初始化 */
@@ -118,22 +118,22 @@ kTimerCreate(const char * name,\
 				void * args)
 {
 	int index;
-	EL_kobj_info_t kobj;
+	kobj_info_t kobj;
 	EL_PTCB_T * tmr_thread;
 	kTimer_t * ktmr = NULL;
 	if( usr_callback == NULL ) return NULL;
 	
 	OS_Enter_Critical_Check();
 	/* 检查对象池是否支持内核定时器 */
-	if(EL_RESULT_OK != ELOS_KobjStatisticsGet( EL_KOBJ_kTIMER,&kobj)){
-		OS_Exit_Critical_Check();
-		return NULL;
+	if(EL_RESULT_OK != kobj_check( EL_KOBJ_kTIMER,&kobj)){
+	 OS_Exit_Critical_Check();
+	 return NULL;
 	}
 	/* 分配一个内核定时器 */
 	ktmr = (kTimer_t *)kobj_alloc( EL_KOBJ_kTIMER );
 	if(NULL == ktmr){
-		OS_Exit_Critical_Check();
-		return NULL;
+	 OS_Exit_Critical_Check();
+	 return NULL;
 	}
 
 #if KTMR_THREAD_SHARE == 0/* 多定时器共享线程 */
@@ -141,19 +141,19 @@ kTimerCreate(const char * name,\
 	/* 从内核对象池取线程控制块 */
 	tmr_thread = (EL_PTCB_T * )kobj_alloc(EL_KOBJ_PTCB);
 	if( tmr_thread == NULL ) {
-		ktmr_create_err_handle((void *)kobj.Kobj_Basepool,(void *)ktmr);
-		OS_Exit_Critical_Check();
-		return NULL;
+	 ktmr_create_err_handle((void *)kobj.Kobj_Basepool,(void *)ktmr);
+	 OS_Exit_Critical_Check();
+	 return NULL;
 	}
 	/* 创建定时器线程，优先级最高 */
-	if(EL_RESULT_ERR ==  EL_Pthread_Create( tmr_thread, name, usr_callback,stack_size,0,ktmr->callback_args))
+	if(EL_RESULT_ERR ==  EL_Pthread_Initialise( tmr_thread, name, usr_callback,stack_size,0,ktmr->callback_args))
 	{
-		/* 释放定时器对象 */
-		ktmr_create_err_handle((void *)kobj.Kobj_Basepool,(void *)ktmr);
-		/* 释放线程对象 */
-		kobj_free( EL_KOBJ_PTCB ,(void *)tmr_thread );
-		OS_Exit_Critical_Check();
-		return NULL;
+	 /* 释放定时器对象 */
+	 ktmr_create_err_handle((void *)kobj.Kobj_Basepool,(void *)ktmr);
+	 /* 释放线程对象 */
+	 kobj_free( EL_KOBJ_PTCB ,(void *)tmr_thread );
+	 OS_Exit_Critical_Check();
+	 return NULL;
 	}
 	/* 挂起定时器线程 */
 	EL_Pthread_Suspend( tmr_thread );
@@ -192,62 +192,60 @@ void pthread_ktmr_sched( void * arg )
 	while(1)
 	{
 #if KTMR_THREAD_SHARE == 0
-		/* 查找超时的定时器 */
-		while(NULL != (ktmr_timeout = KTMR_TIMEOUT_SEARCH(&ktmr_container))){
-
-			KTMR_CONTAINER_REMOVE(ktmr_timeout,&ktmr_container);
-			/* 唤醒这个线程 */
-			EL_Pthread_Resume(ktmr_timeout->tmr_thread);
-		}
-		/* 确定下一个定时器的超时时间 */
-		unsched_tick = (KTMR_TIMEOUT_SOON_SEARCH(pcont)->schdline);
-
-		unsched_tick = unsched_tick - systick_get();
+	 /* 查找超时的定时器 */
+	 while(NULL != (ktmr_timeout = KTMR_TIMEOUT_SEARCH(&ktmr_container))){
+	  KTMR_CONTAINER_REMOVE(ktmr_timeout,&ktmr_container);
+	  /* 唤醒这个线程 */
+	  EL_Pthread_Resume(ktmr_timeout->tmr_thread);
+	 }
+	 /* 确定下一个定时器的超时时间 */
+	 unsched_tick = (KTMR_TIMEOUT_SOON_SEARCH(pcont)->schdline);
+	 unsched_tick = unsched_tick - systick_get();
 #else
-		/* 查找超时的定时器 */
-		while(NULL != (ktmr_timeout = KTMR_TIMEOUT_SEARCH(&ktmr_container))){
-			el_sem_take(&sem_ktmrCont,0xffffffff);
-			KTMR_CONTAINER_REMOVE(ktmr_timeout,&ktmr_container);
-			el_sem_release(&sem_ktmrCont);
-			/* 执行定时任务 */
-			ktmr_timeout->activing = KTMR_YACTIVING;
-			ktmr_timeout->CallBackFunEntry(ktmr_timeout->callback_args);
-			ktmr_timeout->activing = KTMR_NACTIVING;
-			if(ktmr_timeout->sched_cnt != 0){
-				ktmr_timeout->sched_cnt --;
-				if(ktmr_timeout->sched_cnt <= 0){
-					kTimerStop(ktmr_timeout);
-					continue;
-				}
-			}
-			if(ktmr_timeout->period_timeout_type == 1)
-				ktmr_timeout->schdline = ktmr_timeout->schdline + ktmr_timeout->timeout_tick;//不建议选这个模式，如果定时器任务执行周期大于定时周期，那么选择这个模式会出现bug，不适用于定时周期短的任务
-			else
-				ktmr_timeout->schdline = systick_get() + ktmr_timeout->timeout_tick;//建议选这个模式
-			el_sem_take(&sem_ktmrCont,0xffffffff);
-			KTMR_CONTAINER_ADD(ktmr_timeout,&ktmr_container);
-			el_sem_release(&sem_ktmrCont);
-		}
+	 /* 查找超时的定时器 */
+	 while(NULL != (ktmr_timeout = KTMR_TIMEOUT_SEARCH(&ktmr_container))){
+	  el_sem_take(&sem_ktmrCont,0xffffffff);
+	  KTMR_CONTAINER_REMOVE(ktmr_timeout,&ktmr_container);
+	  el_sem_release(&sem_ktmrCont);
+	  /* 执行定时任务 */
+	  ktmr_timeout->activing = KTMR_YACTIVING;
+	  ktmr_timeout->CallBackFunEntry(ktmr_timeout->callback_args);
+	  ktmr_timeout->activing = KTMR_NACTIVING;
+	  if(ktmr_timeout->sched_cnt != 0){
+	   ktmr_timeout->sched_cnt --;
+	   if(ktmr_timeout->sched_cnt <= 0){
+		kTimerStop(ktmr_timeout);
+		continue;
+	   }
+	  }
+	  if(ktmr_timeout->period_timeout_type == 1)
+	   ktmr_timeout->schdline = ktmr_timeout->schdline + ktmr_timeout->timeout_tick;//不建议选这个模式，如果定时器任务执行周期大于定时周期，那么选择这个模式会出现bug，不适用于定时周期短的任务
+	  else
+	   ktmr_timeout->schdline = systick_get() + ktmr_timeout->timeout_tick;//建议选这个模式
+	  el_sem_take(&sem_ktmrCont,0xffffffff);
+	  KTMR_CONTAINER_ADD(ktmr_timeout,&ktmr_container);
+	  el_sem_release(&sem_ktmrCont);
+	 }
 #endif
 #if KTMR_THREAD_SHARE == 0
-		/* 休眠调度线程直至某个定时器超时或定时器任务通知唤醒调度线程 */
-		ret = el_sem_take(&g_kmtr_sem,unsched_tick);
-		if(ret == EL_RESULT_ERR)
-			continue;
-		else{
-			EL_MutexLock_Take(&G_KTMR_NOTIFY_QUEUE_MUT);
-			/* 读取队列中的定时器线程 */
-			thread_tmr = (EL_PTCB_T *)thread_queue.next;
-			/* 删除和释放第一个节点 */
-			list_del(thread_queue.next);
-			free((void *)thread_tmr);
-			EL_MutexLock_Release(&G_KTMR_NOTIFY_QUEUE_MUT);
+	 /* 休眠调度线程直至某个定时器超时或定时器任务通知唤醒调度线程 */
+	 ret = el_sem_take(&g_kmtr_sem,unsched_tick);
+	 if(ret == EL_RESULT_ERR)
+	  continue;
+	 else{
+	  EL_MutexLock_Take(&G_KTMR_NOTIFY_QUEUE_MUT);
+	  /* 读取队列中的定时器线程 */
+	  thread_tmr = (EL_PTCB_T *)thread_queue.next;
+	  /* 删除和释放第一个节点 */
+	  list_del(thread_queue.next);
+	  free((void *)thread_tmr);
+	  EL_MutexLock_Release(&G_KTMR_NOTIFY_QUEUE_MUT);
 
-			/* 后处理，计算超时时间，重新将定时器插入到容器 */
-			ktmr_timeout->schdline = systick_get() + ktmr_timeout->timeout_tick;
-			KTMR_CONTAINER_REMOVE(thread_tmr,&ktmr_container);
-			KTMR_CONTAINER_ADD(ktmr_timeout,&ktmr_container);
-		}
+	  /* 后处理，计算超时时间，重新将定时器插入到容器 */
+	  ktmr_timeout->schdline = systick_get() + ktmr_timeout->timeout_tick;
+	  KTMR_CONTAINER_REMOVE(thread_tmr,&ktmr_container);
+	  KTMR_CONTAINER_ADD(ktmr_timeout,&ktmr_container);
+	 }
 #endif
 	}
 }

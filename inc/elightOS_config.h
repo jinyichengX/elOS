@@ -20,11 +20,8 @@
 #ifndef EL_USE_MUTEXLOCK
 #define EL_USE_MUTEXLOCK 1 		 	/* 使用互斥锁 */
 #endif
-#ifndef EL_USE_SPEEDPIPE
-#define EL_USE_SPEEDPIPE 1 			/* 使用高速队列 */
-#endif
-#if EL_USE_SPEEDPIPE == 1
-#define EL_HIGHSPPEDPIPE_SPIN_PEND 1/* 高速队列自旋阻塞模式 */
+#ifndef EL_USE_MESSAGE_QUEUE
+#define EL_USE_MESSAGE_QUEUE 1 		/* 使用消息队列 */
 #endif
 #ifndef EL_USE_KTIMER
 #define EL_USE_KTIMER 1				/* 使用内核定时器 */
@@ -48,8 +45,8 @@
 #define MUTEXLOCK_OBJ_STATIC 1		/* 互斥锁是否静态分配 */
 #endif
 
-#if EL_USE_SPEEDPIPE
-#define SPEEDPIPE_OBJ_STATIC 1		/* 高速队列管理器是否静态分配 */
+#if EL_USE_MESSAGE_QUEUE
+#define MESSAGE_QUEUE_OBJ_STATIC 1		/* 消息队列管理器是否静态分配 */
 #endif
 
 #if EL_USE_KTIMER
@@ -78,8 +75,8 @@
 #define MUTEXLOCK_POOLSIZE 1024 	/* 互斥锁对象池大小 */
 #endif
 
-#if EL_USE_SPEEDPIPE == 1 && SPEEDPIPE_OBJ_STATIC == 1
-#define SPEEDPIPE_POOLSIZE 1024 	/* 高速队列对象池大小 */
+#if EL_USE_MESSAGE_QUEUE == 1 && MESSAGE_QUEUE_OBJ_STATIC == 1
+#define MESSAGE_QUEUE_POOLSIZE 1024 	/* 消息队列对象池大小 */
 #endif
 
 #if EL_USE_KTIMER == 1 && KTIMER_OBJ_STATIC == 1
@@ -99,3 +96,6 @@
 #define KTMR_THREAD_SHARE 1 		/* 多定时器共享调度线程。不可设为0，功能待完善 */
 #endif
 #endif
+
+
+#define __API__

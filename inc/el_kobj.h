@@ -3,15 +3,15 @@
 
 #include <stddef.h>
 #include "el_pthread.h"
-#include "el_mutex_lock.h"
-#include "el_speedpipe.h"
+#include "el_mutex.h"
+#include "el_msg_q.h"
 #include "el_ktmr.h"
 #include "el_sem.h"
-#include "el_event_flag.h"
+#include "el_flag.h"
 #include "elightOS_config.h"
 
 typedef enum{
-#if 1
+#if true
 	EL_KOBJ_PTCB,
 #endif
 #if EL_USE_THREAD_PENDING && THREAD_PENDING_OBJ_STATIC
@@ -23,8 +23,8 @@ typedef enum{
 #if EL_USE_MUTEXLOCK 	  && MUTEXLOCK_OBJ_STATIC
     EL_KOBJ_MUTEXLOCK,
 #endif
-#if EL_USE_SPEEDPIPE	  && SPEEDPIPE_OBJ_STATIC
-    EL_KOBJ_SPEEDPIPE,
+#if EL_USE_MESSAGE_QUEUE  && MESSAGE_QUEUE_OBJ_STATIC
+    EL_KOBJ_MESSAGE_QUEUE,
 #endif
 #if EL_USE_KTIMER 		  && KTIMER_OBJ_STATIC
 	EL_KOBJ_kTIMER,
@@ -35,13 +35,12 @@ typedef enum{
 #if EL_USE_EVENTFLAG 	  && EVENTFLAG_OBJ_STATIC
 	EL_KOBJ_EVTFLG,
 #endif
-#if 1
+#if true
     EL_KOBJ_TYPE_MAX
 #endif
 }EL_KOBJTYPE_T;
 
 typedef struct stKobjSelfBaseInfo{
-//	struct list_head kobj_entry;/* 内核对象列表入口 */
 	struct{
 		EL_KOBJTYPE_T Kobj_type;/* 内核对象类型 */
 		EL_UCHAR Kobj_size;		/* 内核对象大小 */
@@ -50,13 +49,13 @@ typedef struct stKobjSelfBaseInfo{
 		void * Kobj_Basepool;	/* 内核对象所在对象池 */
 		EL_UINT Kobj_PoolSize;	/* 内核对象所需要的对象池大小 */
 	};
-}EL_kobj_info_t;
+}kobj_info_t;
 
-extern EL_RESULT_T ELOS_KobjStatisticsGet( EL_KOBJTYPE_T obj_type, EL_kobj_info_t * pobj );
-extern void * ELOS_RequestForPoolWait(EL_KOBJTYPE_T kobj_type,EL_UINT ticks);
+extern EL_RESULT_T kobj_check( EL_KOBJTYPE_T obj_type, kobj_info_t * pobj );
+extern void * kobj_pool_request(EL_KOBJTYPE_T kobj_type,EL_UINT ticks);
 extern void * kobj_alloc(EL_KOBJTYPE_T kobj_type);
 extern void kobj_free(EL_KOBJTYPE_T kobj_type,void * pobj_blk);
-extern EL_kobj_info_t EL_Kobj_BasicInfoTable_t[];
+extern kobj_info_t EL_Kobj_BasicInfoTable_t[];
 
 #define KOBJ_INFO_MATCH(idx,start,end) for(idx = start; idx < end; idx++)
 

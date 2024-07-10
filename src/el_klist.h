@@ -162,6 +162,7 @@ static  void __list_del(struct list_head * prev, struct list_head * next)
  * Note: list_empty on entry does not return true after this, the entry is
  * in an undefined state.
  */
+
 static  void list_del(struct list_head *entry)
 {
     __list_del(entry->prev, entry->next);

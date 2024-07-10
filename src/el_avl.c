@@ -291,25 +291,27 @@ avl_node_t * avl_node_add(avl_node_t * node, avl_t * tree)
     return (*pos != NULL)?(*pos):NULL;  
 }
 
-/* 查找节点（通用方法，待完善） */
-//avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree)
-//{
-//    int ret;
-//    avl_node_t * pos = tree->root;
-//    if(( node == NULL )||( tree == NULL ))
-//        return NULL;
-//    while(pos != NULL){
-//        ret = tree->vcomp((void *)&pos->value,(void *)&node->value);
-//        if( ret == -1 ){
-//            pos = pos->lchild;
-//        }else if( ret == 1 ){
-//            pos = pos->rchild;
-//        }else if( ret == 0 ){
-//            return pos;
-//        }
-//    }
-//    return NULL;  
-//}
+/* 查找节点（通用方法） */
+avl_node_t * g_avl_node_search(void * node_cont, avl_t * tree)
+{
+    int ret;
+    avl_node_t * pos = tree->root;
+	void * pos_cont;
+    if(( node_cont == NULL )||( tree == NULL ))
+        return NULL;
+    while(pos != NULL){
+		pos_cont = _AVL_NODE2CONTAINER(pos,tree->node_off);
+        ret = tree->vcomp((void *)pos_cont,(void *)node_cont);
+        if( ret == -1 ){
+            pos = pos->lchild;
+        }else if( ret == 1 ){
+            pos = pos->rchild;
+        }else if( ret == 0 ){
+            return pos;
+        }
+    }
+    return NULL;  
+}
 
 /* 查找节点 */
 avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree)

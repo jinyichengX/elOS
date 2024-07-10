@@ -4,86 +4,61 @@
 #include "el_klist.h"
 #include "el_type.h"
 
-struct EL_SLABDispenserStruct;
-typedef unsigned int SlabBitMapBaseType;
+#define SLAB_CHUNK_MINSZ	64		
+#define SLAB_PAGE_SZ 		(4*1024)	
+#define SLAB_GROUP_LEVEL 	5 		
 
-#define BIT_CONV_TYPE_NUM(TYPE,BIT_NUM) ( (BIT_NUM%(8*typeof(TYPE)))?(BIT_NUM/(8*typeof(TYPE))+1):(BIT_NUM/(8*typeof(TYPE))) )
+/* slab页的分配方式，从页分配器/堆中分配 */
+#define SLAB_CACHE_ALLOC_FROM_HEAP_OR_PAGE 0/* 宏为0是从堆分配，为1从页分配器分配，slab页释放功能没写完 */
 
-#define SLAB_SIZE_STEP_TYPE_FIX 0
-#define SLAB_SIZE_STEP_TYPE_PROPORTIONAL 1
+typedef struct stSlabDispensor slab_disp_t;
+typedef struct stSlabContrlBlock slab_ctrl_t;
+typedef struct stPageControlHead page_t;
 
-#define SLAB_OBJ_SIZE_STEP_TYPE SLAB_SIZE_STEP_TYPE_PROPORTIONAL
-
-#define ELOS_SLAB_BASIC_OBJECT_SIZE 16 /* 基本对象大小 */
-#define ELOS_PER_SLAB_ZONE_DATA_SIZE 512 /* 每个slab区块用于可用于分配的总大小 */
-#define ELOS_SLAB_CHUNK_MAX_LEVEL 3 /* slab最大层数 */
-#define ELOS_SLABZONE_OBJ_MAXNUM (ELOS_PER_SLAB_ZONE_DATA_SIZE/ELOS_SLAB_BASIC_OBJECT_SIZE) /* 最多的块数目 */
-typedef enum {
-    SLAB_CR_GREEN, SLAB_CR_YELLOW, SLAB_CR_RED
-}el_SlabColor_t;
-
-typedef struct EL_SLABColorRemapTableStruct{
-    el_SlabColor_t SlabColorRemapTable[2];
-}el_SlabCrRmp_t;
-
-typedef enum ELOS_SlabDispr_CallBackType{
-    CURRENT_SLAB_FULL = 1,
-    MODIFY_SLAB_COLOR = 2,
-}el_slab_callevt_t;
-struct EL_SLABControlBlockStruct;
-typedef void (*fELOS_NotifySlabCtrEvt)(struct EL_SLABControlBlockStruct *, el_slab_callevt_t );
-typedef fELOS_NotifySlabCtrEvt fELOS_HandleSlabDisprEvt;
-
-/* slab控制块 */
-typedef struct EL_SLABControlBlockStruct
-{  
-    //void * SlabPoolSurf;/* slab池面指针 */
-    EL_UINT SlabZoneSize;/* 一个slab区块大小 */
-    EL_UINT SlabZoneMountedCnt;/* 挂载的slab区块数 */
-    EL_UINT SlabObjSize;/* 单个obj大小 */
-    EL_UINT GreenSlabCnt;/* 绿slab统计 */
-    EL_UINT YellowSlabCnt;/* 黄slab统计 */
-    EL_UINT RedSlabCnt;/* 红slab统计 */
-    struct list_head ckGreenListHead;/* 绿区块链表头,slab块未分配 */
-    struct list_head ckYellowListHead;/* 黄区块链表头,slab已分配，有剩余 */
-    struct list_head ckRedListHead;/* 红区块链表头，slab分配完 */
-    fELOS_HandleSlabDisprEvt SlabDisprEvt;
-    EL_UINT (*ckColorCnt)(LIST_HEAD);/* slab着色统计 */
-}el_SlabPoolHead_t;
+#if SLAB_CACHE_ALLOC_FROM_HEAP_OR_PAGE
+/* 页分配器 */
+typedef struct stPageControlHead
+{
+	page_t * next;
+	size_t page_num;
+}page_t;
+#endif
 
 /* slab分配器 */
-//typedef EL_CHAR (*fELOS_SlabColorConvIdxTake)(struct EL_SLABDispenserStruct *);
-//typedef struct EL_SLABDispenserStruct
-//{
-//    struct list_head SlabNode;
-//    void * obj_pool_data;/* 对象池池面地址 */
-//    EL_UINT SlabObjCnt;/* obj总数目 */
-//    EL_UINT SlabObjUsed;/* 已使用的obj数目 */
-//    SlabBitMapBaseType bitmap[BIT_CONV_TYPE_NUM(SlabBitMapBaseType,ELOS_SLABZONE_OBJ_MAXNUM)];/* 分配器保存的位图 */
-//    el_SlabColor_t cr_type;/* 着色器类型 */
-//    void * SlabOwner;/* 所属的slab控制块节点 */
-//    fELOS_NotifySlabCtrEvt NotifySlabCtrEvt;
-////    void * (* NotifyControlModifyCr)(el_SlabDispr_t *,
-////                fELOS_SlabColorConvIdxTake );
-//}el_SlabDispr_t;
+typedef struct stSlabDispensor
+{
+    slab_disp_t * next;
+    void * plist;		
+    uint32_t chunk_num;	
+    uint32_t chunk_used;
+	slab_ctrl_t * owner;
+	uint32_t * punaligned;		//这个成员在使用page分配器时可以不用
+}slab_disp_t;
 
-/* Slab控制块初始化 */
-#define SLAB_POOL_HEAD_INIT(SLAB_POOLHEAD_PTR) do{\
-    LIST_HEAD_INIT(&(*SLAB_POOLHEAD_PTR).ckGreenListHead);\
-    LIST_HEAD_INIT(&(*SLAB_POOLHEAD_PTR).ckYellowListHead);\
-    LIST_HEAD_INIT(&(*SLAB_POOLHEAD_PTR).ckRedListHead);\
-    (*SLAB_POOLHEAD_PTR).GreenSlabCnt = 0;\
-    (*SLAB_POOLHEAD_PTR).YellowSlabCnt = 0;\
-    (*SLAB_POOLHEAD_PTR).RedSlabCnt = 0;\
-}while(0);
-
-/* Slab分配器初始化 */
-#define SLAB_DISPENSER_INIT(SLAB_DISPENSER_PTR) do{\
-    LIST_HEAD_INIT(&(*SLAB_DISPENSER_PTR).SlabNode);\
-}while(0);
-
-#define OS_SLAB_DIPSR_OWNER_SET( P_SLAB_DISPR,P_SLAB_HEAD ) (*P_SLAB_DISPR).SlabOwner=(void *)P_SLAB_HEAD
-#define OS_SLAB_DIPSR_OWNER_GET( P_SLAB_DISPR ) ((*P_SLAB_DISPR).SlabOwner)
+/* slab控制块 */
+typedef struct stSlabContrlBlock
+{  
+    uint32_t zone_size;			/* 一个slab区块大小 */
+    uint32_t zone_mounted;		/* 挂载的slab区块数 */
+    uint32_t chunk_size;		/* 单个obj大小 */
+	
+    slab_disp_t * full;			/* 红区块链表头 */
+    slab_disp_t * partical;		/* 黄区块链表头 */
+    slab_disp_t * empty;		/* 绿区块链表头 */
+}slab_ctrl_t;
+#if SLAB_CACHE_ALLOC_FROM_HEAP_OR_PAGE
+extern page_t * sys_page_init(page_t **page,void *surf, void *bottom);
+extern void * _slab_pages_alloc(page_t **page, int page_num);
+extern void _slab_pages_free(page_t ** page,void * addr,int page_num);
+#endif
+extern void slab_mem_init(void *surf, int size);
+extern slab_disp_t * slab_cache_new(slab_ctrl_t *slab_ctrl);
+extern void slab_cache_destroy(slab_disp_t * slab);
+extern void * slab_cache_alloc(slab_disp_t * slab);
+extern slab_disp_t * slab_cache_free(void * p);
+extern void * slab_mem_alloc(slab_ctrl_t *slab_ctrl,uint32_t size);
+extern void slab_mem_free(void * p);
+extern void slab_blk_remove(slab_disp_t *slab,void * p);
 /**************************************************
  * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
             s l a b 系 统 结 构

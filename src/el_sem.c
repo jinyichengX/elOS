@@ -32,27 +32,27 @@ void el_sem_init(el_sem_t * sem,uint32_t value)
  * 2024/06/11	    V1.0	  jinyicheng	      创建
  ***********************************************************************/
 #if SEM_OBJ_STATIC == 1
-void * el_sem_create(uint32_t value)
+el_sem_t * el_sem_create(uint32_t value)
 {
-	EL_kobj_info_t kobj;
+	kobj_info_t kobj;
 	el_sem_t * sem = NULL;
 	
 	OS_Enter_Critical_Check();
 	/* 检查对象池是否支持事件标志 */
-	if(EL_RESULT_OK != ELOS_KobjStatisticsGet( EL_KOBJ_SEM,&kobj)){
+	if(EL_RESULT_OK != kobj_check( EL_KOBJ_SEM,&kobj)){
 		OS_Exit_Critical_Check();
 		return NULL;
 	}
 	sem = (el_sem_t * )kobj_alloc( EL_KOBJ_SEM );
 	
-	if((el_sem_t * )0 == sem){
+	if(NULL == sem){
 		OS_Exit_Critical_Check();
 		return NULL; 
 	}
 	OS_Exit_Critical_Check();
 	el_sem_init(sem,value);
 	
-	return (void *)sem;
+	return sem;
 }
 #endif
 

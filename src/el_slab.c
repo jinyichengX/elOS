@@ -1,314 +1,436 @@
 #include "el_slab.h"
+#include "el_sem.h"
 #include "port.h"
-#include <string.h>
+#include "el_kheap.h"
 
-///* 这里每个slab zone采用固定大小，可以自动调节 */
-//static EL_UINT g_SlabPoolSize[ELOS_SLAB_CHUNK_MAX_LEVEL] = {
-//    [ 0 ... ELOS_SLAB_CHUNK_MAX_LEVEL-1 ] = ELOS_PER_SLAB_ZONE_DATA_SIZE;
-//};
-///* slab控制块管理的obj大小 */
-//static EL_UINT g_SlabObjSize[ELOS_SLAB_CHUNK_MAX_LEVEL] = {
-//};
-///* 着色节点转移表 */
-//el_SlabCrRmp_t el_SlabCrRmpTab[4] = {
-//    {SLAB_CR_GREEN,SLAB_CR_YELLOW},{SLAB_CR_YELLOW,SLAB_CR_GREEN},
-//    {SLAB_CR_YELLOW,SLAB_CR_RED},{SLAB_CR_YELLOW,SLAB_CR_YELLOW},
-//    {SLAB_CR_RED,SLAB_CR_YELLOW},
-//};
-//EL_CHAR ELOS_SlabDisprEventCallBack(el_slab_callevt_t callevt_type);
-///* 获取着色器长度 */
-//EL_UINT ELOS_SlabColorCntList(void *Slab_PoolSurf,LIST_HEAD* pList)
-//{
+#define ALIGNED_DOWN_REGION(ADDR,SEGSZ) ((ADDR) & (~(size_t)((SEGSZ)-1) ))
+#define ALIGNED_UP_REGION(ADDR,SEGSZ)  	(((ADDR) + (SEGSZ) ) & (~(size_t)((SEGSZ)-1) ))
 
-//}
+/* slab class template */
+static int g_SlabPoolSize[SLAB_GROUP_LEVEL] = {
+    [ 0 ... SLAB_GROUP_LEVEL-1 ] = SLAB_PAGE_SZ,
+};
 
-//void ELOS_SlabDisprBitmapInitialise(el_SlabDispr_t * pDispr)
-//{
-//    if( pDispr == NULL ) return;
+#if SLAB_CACHE_ALLOC_FROM_HEAP_OR_PAGE
+/* the global page point for slab page management */
+page_t * page;/* unused */
 
-//    el_SlabDispr_t * pSlabDispr = pDispr;
-//    char MapSizeAlign4 = sizeof(pSlabDispr->bitmap);
-//    ASSERT( MapSizeAlign4 % 4 == 0 );
-//    memset((void *)pSlabDispr->bitmap,0,MapSizeAlign4);
-//}
+/* system page allocator initialise */
+page_t * sys_page_init(page_t ** page,void * surf, void * bottom)
+{
+	size_t page_num;
+	size_t aligned_surf, aligned_bottom;
+	
+	if(( page == NULL )||( !surf )||( !bottom )){
+	 * page = NULL;
+	 return NULL;
+	}
 
-//void ELOS_SlabSDisprBitmapSetBit(  )
-//{
+	/* align the surf up and the bottom down */
+	aligned_surf = ALIGNED_UP_REGION((size_t)surf,SLAB_PAGE_SZ);
+	aligned_bottom = ALIGNED_DOWN_REGION((size_t)bottom,SLAB_PAGE_SZ);
+	
+	if( aligned_surf >= aligned_bottom ){
+	 * page = NULL;
+	 return NULL;
+	}
+	
+	/* calculate page number */
+	page_num = (aligned_bottom - aligned_surf)/SLAB_PAGE_SZ;
+	
+	/* get the first page as head */
+	* page = (page_t *)aligned_surf;
+	
+	/* initialise the page list */
+	(* page)->next = NULL;
+	(* page)->page_num = page_num;
+	
+	return * page;
+}
 
-//}
-//void ELOS_SlabSDisprBitmapClearBit(  )
-//{
+/* allocate pages from specity page list */
+void * _slab_pages_alloc(page_t ** page, int page_num)
+{
+	page_t **pos,**prev;
+	void * page_addr = NULL;
+	int lpage = 0;
+	if(( page == NULL )||( !page_num ))
+	 return NULL;
+	
+	OS_Enter_Critical_Check();
+	for(prev = pos = page; *pos; pos = &((*pos)->next))
+	{
+	 /* first fit match success */
+	 if((*pos)->page_num > page_num)
+	 {
+	  lpage = (*pos)->page_num - page_num;
+	  page_addr = (void *)(*pos);
+	
+	  /* splite the list */
+	  *prev = (page_t * )((char *)page_addr+page_num*SLAB_PAGE_SZ);
+	  (*prev)->next = (*pos)->next;
+	  (*prev)->page_num = lpage;
+		 
+	  break;
+	 }
+	 /* first fit match success */
+	 if((*pos)->page_num == page_num)
+	 {
+	  page_addr = (void *)(*pos);
+	
+	  /* allocate all pages */
+	  *pos = (*pos)->next;
+		 
+	  break;
+	 }
+	 /* goto next loop */
+	 prev = pos;
+	}
+	OS_Exit_Critical_Check();
+	
+	return page_addr;
+}
 
-//}
+/* free pages to specity page list */
+void _slab_pages_free(page_t ** page,void * addr,int page_num)
+{
+	page_t **pos,**prev;
+	if(( page == NULL )||( !addr )||( !page_num ))
+	 return;
+	
+	OS_Enter_Critical_Check();
+	for(prev = pos = page; *pos; pos = &((*pos)->next))
+	{
+		/* empty,need add */
+	}
+	OS_Exit_Critical_Check();
+	
+	return;
+}
+#endif
 
-///* 找到空位置位并返回索引 */
-//EL_UINT ELOS_SlabSDisprBitmapFindBitAndSet(el_SlabDispr_t * pSlabDispr)
-//{
+/* add slab zone to list */
+void slab_cache_add_front(slab_disp_t **head,slab_disp_t * slab)
+{
+	if(* head == NULL){
+	 * head = slab;
+	 return;
+	}
+	slab->next = * head;
+	* head = slab;
+}
 
-//}
+/* remove slab zone from list */
+void slab_cache_remove(slab_disp_t **head,slab_disp_t * slab)
+{
+	* head = slab->next;
+}
 
-///* 找到空位置零并返回索引 */
-//EL_UINT ELOS_SlabSDisprBitmapFindBitAndClear(el_SlabDispr_t * pSlabDispr,EL_INT index)
-//{
+/* add slab chunk to list */
+void slab_blk_add_front(slab_disp_t *slab,void * p)
+{
+	if(NULL == slab->plist)
+	{
+	 slab->plist = p;
+	 return;
+	}
+	*(size_t *)p = (size_t)slab->plist;
+	slab->plist = p;
+}
 
-//}
-///* 转移至深色节点，返回+1 */
-//EL_CHAR ELOS_SlabColorConvDeepIdxTake(el_SlabDispr_t * pSlabDispr)
-//{
-//    return pSlabDispr
-//}
-///* 浅色节点，返回-1 */
-//EL_CHAR ELOS_SlabColorConvSallowIdxTake(el_SlabDispr_t * pSlabDispr)
-//{
-//    return 
-//}
-//void SlabZoneResize(EL_UINT index,EL_UINT size)
-//{
-//    g_SlabPoolSize[index] = (index<=ELOS_SLAB_CHUNK_MAX_LEVEL-1)?\
-//                                size:ELOS_PER_SLAB_ZONE_DATA_SIZE;
-//}
-//void SlabZoneResizeAll(EL_UINT size)
-//{
-//    for(int idx=0; idx<ELOS_SLAB_CHUNK_MAX_LEVEL-1; idx++)
-//        SlabZoneResize(size);
-//}
-///* slab控制组初始化 */
-//void ELOS_SlabPoolClassInitialise(void *Slab_PoolSurf, EL_UINT Slab_PoolSize)
-//{
-//    el_SlabPoolHead_t *p_SlabPool = (el_SlabPoolHead_t *)0;
-//    if(Slab_PoolSurf == NULL) return;
+/* remove slab chunk from list */
+void slab_blk_remove(slab_disp_t *slab,void * p)
+{
+	if(NULL == p) return;
+	slab->plist = *(char **)p;
+}
 
-//    if(Slab_PoolSize < ELOS_SLAB_CHUNK_MAX_LEVEL*sizeof(el_SlabPoolHead_t))
-//        return;
+/* zone list handle */
+void slab_cache_add_post(slab_ctrl_t *slab_ctrl,\
+					 slab_disp_t *slab)
+{
+	if(NULL == slab) return;
+	
+	if(++slab->chunk_used < slab->chunk_num){
+		
+	 /* chunk used one */
+	 if(slab->chunk_used == 1){
+	  /* remove from empty list */
+	  slab_cache_remove(&slab_ctrl->empty,slab);
+		 
+	  /* add to partical list */
+	  slab_cache_add_front(&slab_ctrl->partical,slab);
+	 }
+	}
+	/* chunks all used */
+	else{
+	 /* remove from partical list */
+	 slab_cache_remove(&slab_ctrl->partical,slab);
+		
+	 /* add to full list */
+	 slab_cache_add_front(&slab_ctrl->full,slab);
+	}
+}
 
-//    p_SlabPool = (el_SlabPoolHead_t *)Slab_PoolSurf;
-//    OS_Enter_Critical_Check();
-//    /* 初始化slab控制头 */
-//    for( int idx = 0; idx < ELOS_SLAB_CHUNK_MAX_LEVEL; ++idx, p_SlabPool++ ){
-//        SLAB_POOL_HEAD_INIT(p_SlabPool);
-//        (*p_SlabPool).ckColorCnt = NULL;
-//        (*p_SlabPool).SlabObjSize = ELOS_SLAB_BASIC_OBJECT_SIZE << 1;
-//        (*p_SlabPool).SlabZoneSize = g_SlabPoolSize[idx];
-//        (*p_SlabPool).SlabZoneMountedCnt = (EL_UINT)0;
-//        ELOS_SlabDispenserAlloc((void *)p_SlabPool);
-//        (*p_SlabPool).SlabZoneMountedCnt ++;
-//    }
+/* zone list handle */
+void slab_cache_remove_post(slab_ctrl_t *slab_ctrl,\
+					 slab_disp_t *slab)
+{
+	if(NULL == slab) return;
+	
+	if(--slab->chunk_used > 0){
+		
+	 /* chunk left one */
+	 if(slab->chunk_used == slab->chunk_num - 1){
+	  /* remove from full list */
+	  slab_cache_remove(&slab_ctrl->full,slab);
+		 
+	  /* add to partical list */
+	  slab_cache_add_front(&slab_ctrl->partical,slab);
+	 }
+	}
+	else{
+	 /* remove from partical list */
+	 slab_cache_remove(&slab_ctrl->partical,slab);
+		
+	 /* add to empty list */
+	 slab_cache_add_front(&slab_ctrl->empty,slab);
+	}
+}
 
-//    SlabZoneResizeAll(ELOS_PER_SLAB_ZONE_DATA_SIZE);
-//    OS_Exit_Critical_Check();
-//    return;
-//}
+/* slab control block initialise */
+void slab_mem_init(void *surf,int size)
+{
+	int idx;
+    slab_ctrl_t *slab_class;
+	
+    if(surf == NULL) return;
+    if(size < SLAB_GROUP_LEVEL*sizeof(slab_ctrl_t))
+     return;
 
-///* 在slab组分配新的slab分配器 */
-//el_SlabDispr_t * ELOS_SlabDispenserAlloc(void *Slab_PoolSurf)
-//{
-//    el_SlabPoolHead_t *pSlabHead = (el_SlabPoolHead_t*)Slab_PoolSurf;
-//    el_SlabDispr_t * SlabDisprToAlloc = NULL;
+    slab_class = (slab_ctrl_t *)surf;
+	
+    OS_Enter_Critical_Check();
+	
+	/* initialise slab class refer to the template array */
+    for(idx = 0; idx < SLAB_GROUP_LEVEL; idx++){
+	 /* initialise the slab control block*/
+	 slab_class->empty = NULL;
+	 slab_class->partical = NULL;
+	 slab_class->full = NULL;
+	 slab_class->zone_mounted = 0;
+	 slab_class->chunk_size = SLAB_CHUNK_MINSZ<<idx;
+	 slab_class->zone_size = g_SlabPoolSize[idx];
+	
+	 slab_class++;
+    }
+    OS_Exit_Critical_Check();
+	
+    return;
+}
 
-//    if(Slab_PoolSurf == NULL) return NULL;
-//    EL_UINT ZoneSizeNeed = sizeof(el_SlabDispr_t) + ELOS_PER_SLAB_ZONE_DATA_SIZE;
+/* user request for a chunk from slab cache */
+void * slab_mem_alloc(slab_ctrl_t *class_start,uint32_t size)
+{
+	int idx;
+	void * p = NULL;
+	slab_ctrl_t * slab_class = class_start;
+	slab_disp_t * slab_alloc = NULL;
+	
+	if( NULL == class_start )
+	 return NULL;
+	
+	OS_Enter_Critical_Check();
+	
+	/* matching suitable slab dispensor */
+	for(idx = 0; idx < SLAB_GROUP_LEVEL; idx++, slab_class++)
+	{
+	 if(slab_class->chunk_size >= size)
+	 {
+	  /* slab dispensor matched */
+	  if(
+		  (slab_class->partical == NULL)&&\
+		  (slab_class->empty == NULL)
+		)
+	   /* if empty list is empty,request for one new slab zone */
+	   slab_alloc = slab_cache_new(slab_class);
+	  
+	  /* allocate preferentially from partical list */
+	  /* if not,allocate from empty list */
+	  slab_alloc = (NULL != slab_class->partical)?(slab_class->partical):(slab_class->empty);
+	  
+	  /* allocate from cache */
+	  p = slab_cache_alloc(slab_alloc);
+	  
+	  break;
+	 }
+	}
+	/* zone list post handle */
+	slab_cache_add_post(slab_class,slab_alloc);
+	
+	/* chunk list post handle */
+	slab_blk_remove(slab_alloc,p);
+	
+	OS_Exit_Critical_Check();
+	
+	return p;
+}
 
-//    OS_Enter_Critical_Check();
-//    SlabDisprToAlloc = (el_SlabDispr_t *)malloc(ZoneSizeNeed);
-//    if( SlabDisprToAlloc == NULL ) return (SlabDisprToAlloc *)0;
+/* user free a allocated chunk from slab cache */
+void slab_mem_free(void * p)
+{
+	slab_disp_t * slab;
 
-//    memset( (void *)SlabDisprToAlloc, 0, ZoneSizeNeed);
-//    /* slab分配器初始化 */
-//    SLAB_DISPENSER_INIT(SlabDisprToAlloc);
-//    /* 添加到绿着色器列表 */
-//    list_add_tail( &SlabDisprToAlloc->SlabNode, &pSlabHead->ckGreenListHead);
-//    /* slab数据池面指针初始化 */
-//    SlabDisprToAlloc->obj_pool_data = (void *)( SlabDisprToAlloc + 1 );
-//    SlabDisprToAlloc->SlabObjCnt = pSlabHead->SlabZoneSize/pSlabHead->SlabObjSize;
-//    SlabDisprToAlloc->SlabObjUsed = 0;
-//    SlabDisprToAlloc->cr_type = SLAB_CR_GREEN;
-//    SlabDisprToAlloc->NotifySlabCtrEvt = ELOS_SlabDisprEventCallBack;
-//    OS_SLAB_DIPSR_OWNER_SET( SlabDisprToAlloc,pSlabHead );
-//    //SlabDisprToAlloc->NotifyControlModifyCr = ELOS_SlabMvColorNodeToAnother;
-//    ELOS_SlabDisprBitmapInitialise(SlabDisprToAlloc);
-//    OS_Exit_Critical_Check();
-//    
-//    return SlabDisprToAlloc;
-//}
+	OS_Enter_Critical_Check();
+	
+	/* postion the slab dispensor */
+	slab = slab_cache_free(p);
+	if( NULL == slab ) return;
+	
+	/* zone list post hadnle  */
+	slab_cache_remove_post(slab->owner,slab);
+	
+	/* chunk list post handle */
+	slab_blk_add_front(slab,p);
+	
+	OS_Exit_Critical_Check();
+}
 
-///* 在slab组释放一个slab分配器 */
-//EL_UINT * ELOS_SlabDispenserFree(el_SlabDispr_t * pSlabDispr)
-//{
-//    el_SlabPoolHead_t *pSlabHead;
-//    el_SlabDispr_t * SlabDisprToFree = pSlabDispr;
-//    if(pSlabDispr == NULL) return NULL;
+/* request for a slab zone */
+slab_disp_t * slab_cache_new(slab_ctrl_t *slab_ctrl)
+{
+	uint32_t *p;
+    slab_ctrl_t * slab_cb;
+    slab_disp_t * slab;
+	void * zone_mem;
+	int idx;
+	uint32_t zone_sz;
+	uint32_t chunk_sz;
+	
+    if(slab_ctrl == NULL) return NULL;
+	
+	zone_sz = slab_ctrl->zone_size;
+	chunk_sz = slab_ctrl->chunk_size;
+	
+	/* allocate one page from kernel heap */
+#if !SLAB_CACHE_ALLOC_FROM_HEAP_OR_PAGE
+	zone_mem = hp_alloc_align(sysheap_hcb,&p,zone_sz,1);
+#else
+	zone_mem = _slab_pages_alloc(&page,zone_sz/SLAB_PAGE_SZ);
+#endif
+	if(NULL == zone_mem) return NULL;
+	
+    OS_Enter_Critical_Check();
+	
+	/* position slab object to the end of the slab page	*/
+	slab = (slab_disp_t *)((char *)zone_mem + zone_sz - sizeof(slab_disp_t));
+	
+	/* initialise the slab dispensor */
+	slab->next = NULL;
+	slab->plist = zone_mem;
+	slab->chunk_used = 0;
+	slab->owner = slab_ctrl;
+	slab->punaligned = p;
+	slab->chunk_num = (zone_sz - sizeof(slab_disp_t)) / chunk_sz;
+	
+	/* create slab chunk linkage */
+	for(idx = 0;idx<slab->chunk_num-1;idx++){
+	 *((size_t *)((char *)zone_mem + idx*chunk_sz)) =\
+     (size_t)((char *)zone_mem + (idx+1)*chunk_sz);
+	}
+	
+	/* add slab zone to slab control block */
+	slab_cache_add_front(&slab_ctrl->empty,slab);
+	
+	/* slab control block mounted num add */
+	slab_ctrl->zone_mounted ++;
+	
+    OS_Exit_Critical_Check();
+    
+    return slab;
+}
 
-//    OS_Enter_Critical_Check();
-//    pSlabHead = (el_SlabPoolHead_t *)pSlabDispr->SlabOwner;
-//    pSlabHead->SlabZoneMountedCnt --;
-//    /* 从着色器删除 */
-//    list_del( (struct list_head *)&SlabDisprToFree->SlabNode );
-//    if(SlabDisprToFree->cr_type == SLAB_CR_GREEN)
-//        pSlabHead->GreenSlabCnt --;
-//    else if(SlabDisprToFree->cr_type == SLAB_CR_YELLOW)
-//        pSlabHead->YellowSlabCnt --;
-//    else if (SlabDisprToFree->cr_type == SLAB_CR_RED)
-//        pSlabHead->RedSlabCnt --;
-//    free((void *)pSlabDispr);
-//    OS_Exit_Critical_Check();
+/* free a slab zone */
+void slab_cache_destroy(slab_disp_t * slab)
+{
+	slab_disp_t **head;
+	if(NULL == slab) return;
+	
+	OS_Enter_Critical_Check();
+	
+	/* take the slab cache list */
+	if(slab->chunk_num == slab->chunk_used)
+	 head = &(slab->owner->full);
+	else if(slab->chunk_used == 0)
+	 head = &(slab->owner->empty);
+	else 
+	 head = &(slab->owner->partical);
+	
+	/* remove it from cache list */
+	slab_cache_remove(head, slab);
+	
+	/* slab control block mounted num sub */
+	slab->owner->zone_mounted --;
+	
+	/* free cache memory */
+#if !SLAB_CACHE_ALLOC_FROM_HEAP_OR_PAGE
+	hp_free(sysheap_hcb,(void *)slab->punaligned);
+#else
+	_slab_pages_free(&page,0,0);/* some bugs here,need fix */
+#endif
+	
+	OS_Exit_Critical_Check();
+}
 
-//    return (EL_UINT)EL_RESULT_OK;
-//}
+/* allocate a chunk from cache */
+void * slab_cache_alloc(slab_disp_t * slab)
+{
+	if(slab == NULL) return NULL;
+	return slab->plist;
+}
 
-///* SLAB控制块事件处理 */
-//EL_CHAR ELOS_SlabDisprEventCallBack(el_SlabPoolHead_t *pSlabHead,el_slab_callevt_t callevt_type)
-//{
-//    EL_CHAR ret = 0;
-//    switch(callevt_type)
-//    {
-//        case CURRENT_SLAB_FULL:
-//            /* 尝试申请新的内存块 */
-//            if(!ELOS_SlabDispenserAlloc((void *)pSlabHead)) ret = -1;
-//            break;
-//        case MODIFY_SLAB_COLOR:
-//            break;
-//    }
-//    return ret;
-//}
+/* free a chunk from cache */
+slab_disp_t * slab_cache_free(void * p)
+{
+	slab_disp_t * slab = NULL;
+	void * slab_mem;
+	
+	if(NULL == p) return NULL;
 
-///* 向slab分组添加新的slab块 */
-//EL_UINT ELOS_SlabGroupAdd(el_SlabPoolHead_t *pSlabHead, EL_UINT obj_size)
-//{
-//    el_SlabDispr_t * SlabDisprToAlloc = NULL;
-//    for(int idx = 0 ; idx < ELOS_SLAB_CHUNK_MAX_LEVEL ; ++idx)
-//    {
-//        if( (pSlabHead ++)->SlabObjSize == obj_size){
-//            pSlabHead --;
-//            SlabDisprToAlloc = ELOS_SlabDispenserAlloc((void *)pSlabHead);
-//        }
-//    }
-//    return (SlabDisprToAlloc == NULL)?EL_RESULT_ERR:EL_RESULT_OK;
-//}
+	/* position the slab dispensor */
+	slab_mem = (void *)ALIGNED_DOWN_REGION((size_t)p,SLAB_PAGE_SZ);
+	slab = (slab_disp_t *)((char *)slab_mem+SLAB_PAGE_SZ-sizeof(slab_disp_t));
+}
 
-///* 着色器列表调整 */
-//EL_UINT ELOS_SlabMvColorNodeToAnother(el_SlabDispr_t * pSlabDispr,\
-//                fELOS_SlabColorConvIdxTake SlabColorConvIdxTake)
-//{
-//    LIST_HEAD * pListNode;EL_CHAR cvIdx;
-//    el_SlabPoolHead_t * pSlabDipsrOwner;
-//    if(pSlabDispr == NULL)  return (EL_UINT)EL_RESULT_ERR;
+/* take statistics of slab cache */
+void slab_cache_statistics_take(slab_ctrl_t *slab_ctrl,uint32_t * zs,uint32_t *cs,uint32_t *mtn)
+{
+	if(NULL == slab_ctrl) return;
+	
+	OS_Enter_Critical_Check();
+	if(NULL != zs) *zs = slab_ctrl->zone_size;
+	if(NULL != zs) *cs = slab_ctrl->chunk_size;
+	if(NULL != mtn) *zs = slab_ctrl->zone_mounted;
+	OS_Exit_Critical_Check();
+}
 
-//    pSlabDipsrOwner = OS_SLAB_DIPSR_OWNER_GET(pSlabDispr);/* 获取slab分配器的持有者 */
-
-//    pListNode = pSlabDispr->SlabNode;/* slab分配器节点 */
-
-//    OS_Enter_Critical_Check();
-//    /* 从原着色器列表删除 */
-//    list_del( pListNode );
-//    cvIdx = SlabColorConvIdxTake(pSlabDispr);
-//    /* 添加到新的着色器列表 */
-//    list_add_tail( pListNode, pSlabDipsrOwner->ckYellowListHead );
-//    /* 更新着色器数目 */
-//    pSlabDispr->SlabObjUsed += cvIdx;
-//    OS_Exit_Critical_Check();
-
-//    return (EL_UINT)EL_RESULT_OK; 
-//}
-
-///* 从slab区分配一个obj */
-//void * ELOS_SlabObjAlloc(el_SlabDispr_t * pSlabDispr)
-//{
-//    void * pObjAlloced;
-//    EL_UINT ObjIndex;
-//    el_SlabPoolHead_t *pHead = (el_SlabPoolHead_t *)pSlabDispr->SlabOwner;
-//    if( pSlabDispr == NULL ) return NULL;
-
-//    OS_Enter_Critical_Check();
-//    ASSERT( pSlabDispr->SlabObjCnt >= pSlabDispr->SlabObjUsed );
-//    /* 从位图表中找出 */
-//    ObjIndex = (pSlabDispr->SlabObjCnt == pSlabDispr->SlabObjUsed)?0:\
-//                ELOS_SlabSDisprBitmapFindBitAndSet(pSlabDispr);
-//    if(ObjIndex == (EL_UINT)0){
-//        /* 重新分配一个slab区块 */
-//        //if( EL_RESULT_ERR == ELOS_SlabGroupAdd(el_SlabPoolHead_t *pSlabHead, EL_UINT obj_size)){
-//        //    return NULL;
-//        //}
-//        if(0 == (void)SlabDisprToAlloc->NotifySlabCtrEvt(CURRENT_SLAB_FULL))
-//            ELOS_SlabObjAlloc( el_SlabDispr_t * pSlabDispr);
-//        else return NULL;
-//    }
-//    pObjAlloced = pSlabDispr->obj_pool_data + ObjIndex * pHead->SlabObjSize;
-//    /* 更新着色器列表 */
-//    ELOS_SlabMvColorNodeToAnother(pSlabDispr,ELOS_SlabColorConvDeepIdxTake);
-//    OS_Exit_Critical_Check();
-
-//    return pObjAlloced?pObjAlloced:NULL;
-//}
-///* 从slab区释放一个obj */
-//void ELOS_SlabFreeObject(el_SlabDispr_t * pSlabDispr, void *pObj)
-//{
-//    EL_UINT ObjIndex;
-//    el_SlabPoolHead_t *pHead;
-//    if((pSlabDispr == NULL)||(pObj == NULL)) return;
-//    pHead = (el_SlabPoolHead_t *)pSlabDispr->SlabOwner;
-//    ObjIndex = ((EL_UINT)pObj - (EL_UINT)pSlabDispr->obj_pool_data)/pHead->SlabObjSize;
-
-//    OS_Enter_Critical_Check();
-//    ELOS_SlabSDisprBitmapFindBitAndClear( pSlabDispr,ObjIndex );
-//    pSlabDispr->SlabObjUsed --;
-//    /* 着色器列表调整 */
-//    pSlabDispr->NotifySlabCtrEvt(pHead,MODIFY_SLAB_COLOR);
-//    OS_Exit_Critical_Check();
-//}
-
-///* 分配一个obj,必须为slab分组首地址 */
-//void *ELOS_SlabMemAlloc(void * SlabPoolSurf,EL_UINT NeedAllocSize)
-//{
-//    el_SlabPoolHead_t *SlabHead = (el_SlabPoolHead_t *)SlabPoolSurf;
-//    LIST_HEAD_CREAT( *pSlabZoneToAllocHeadNode );
-//    void * pObj = NULL;
-//    if( (SlabPoolSurf== NULL) || (NeedAllocSize == 0) ) return NULL;
-
-//    /* 采用最小适配算法 */
-//    for(int s_idx = 0 ; s_idx < ELOS_SLAB_CHUNK_MAX_LEVEL; s_idx++){
-//        SlabHead += s_idx;
-//        /* 保证内存使用率大于50% */
-//        if( (SlabHead->SlabObjSize >= NeedAllocSize) &&\
-//             (SlabHead->SlabObjSize <= 2*NeedAllocSize) ){
-//            /* 优先从黄链分配，接着是绿链，不够就分配新的slab区块 */
-//            pSlabZoneToAllocHeadNode = &SlabHead->ckYellowListHead;
-//            if( list_empty( pSlabZoneToAllocHeadNode ) ){
-//                /* 黄链没有就从绿链分配 */
-//                pSlabZoneToAllocHeadNode = &SlabHead->ckGreenListHead;
-//                if( list_empty( pSlabZoneToAllocHeadNode ) ){
-//                    /* 没有绿链就从系统内存申请 */
-//                    if((EL_UINT)EL_RESULT_ERR ==  ELOS_SlabGroupAdd(SlabHead, SlabHead->SlabObjSize)){
-//                        return (void *)0;
-//                    }else{
-//                        pObj = ELOS_SlabObjAlloc( SlabHead->ckGreenListHead );
-//                        ASSERT( pObj != (void *)0 );
-//                        return (void *)pObj;
-//                    }
-//                }
-//            }
-//            pObj = ELOS_SlabObjAlloc( SlabHead->ckYellowListHead );
-//        }else continue;
-//    }
-//    return (void *)pObj;
-//}
-
-///* 释放一个obj */
-//void ELOS_SlabMemFree(void *pObj)
-//{
-//    EL_UINT itemIndex;EL_UCHAR ** SlabDisprAddr;
-//    if(pObj == NULL) return;
-//    EL_UINT ObjIdx;
-//    /* 获取obj所在slab控制块，slab分配器首地址 */
-//    ELOS_GetObjSlabDisprAddr(EL_UCHAR *plabDisprAddr,&ObjIdx);
-
-//    //EL_UINT itemSize = pSlabHead->SlabObjSize;/* 获取obj大小 */
-//    //itemIndex = pSlabHead->SlabZoneSize/itemSize;/* 获取该obj所在位图的索引 */
-//    ELOS_SlabMvColorNodeToAnother(pSlabDispr);
-//}
-
-///* 由obj获取所在slab分配器地址 */
-//void * ELOS_GetObjSlabDisprAddr(EL_UCHAR *plabDisprAddr,EL_UINT *pObjIdx)
-//{
-//    
-//    *pObjIdx = 0;/* obj所在的slab索引 */
-//}
+/* 测试用例 */
+void slab_test(void)
+{
+	char test[200];
+	void * p1;
+	void * p2;
+	void * p3;
+	slab_mem_init((void *)test, 200);
+	slab_cache_new((slab_ctrl_t *)test+1);
+	slab_cache_new((slab_ctrl_t *)test+1);
+	p1 = slab_mem_alloc((slab_ctrl_t *)test,1024);
+	p2 = slab_mem_alloc((slab_ctrl_t *)test,1024);
+	p3 = slab_mem_alloc((slab_ctrl_t *)test,1024);
+	slab_mem_free(p3);
+	slab_mem_free(p1);
+	slab_mem_free(p2);
+	p1 = slab_mem_alloc((slab_ctrl_t *)test,1024);
+	p2 = slab_mem_alloc((slab_ctrl_t *)test,1024);
+	p3 = slab_mem_alloc((slab_ctrl_t *)test,1024);
+}

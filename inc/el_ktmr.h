@@ -7,7 +7,7 @@
 #include "el_pthread.h"
 #include "elightOS_config.h"
 #include "el_kobj.h"
-#include "el_kpool_static.h"
+#include "el_kpool.h"
 #include "el_kheap.h"
 #include "el_sem.h"
 

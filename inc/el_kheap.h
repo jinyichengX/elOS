@@ -2,12 +2,13 @@
 #define EL_KHEAP_H
 
 #include <stdint.h>
-#include "el_mutex_lock.h"
+#include "el_mutex.h"
 #include "el_klist.h"
 #include "el_type.h"
 
 typedef struct stHeapControlBlock hcb_t;
 
+#define SYS_HEAP_SIZE 40*1024
 /*配置相关*/
 #define KHEAP_NAME_EN 0
 #define KHEAP_USAGE_STATISTICS_EN 1
@@ -70,11 +71,12 @@ typedef struct stLinkNode{
 struct usdinfo{
 	uint32_t usdsz; 					/* 块大小 */
 };		
-extern uint8_t sys_heap[10*1024];
+extern uint8_t sys_heap[SYS_HEAP_SIZE];
 extern hcb_t * sysheap_hcb;
 extern void Kheap_name_set( hcb_t * hcb,const char * n);
-extern hcb_t * Kheap_Initialise(void * surf,void * bottom);	/* 堆初始化 */
+extern hcb_t * hp_init(void * surf,void * bottom);	/* 堆初始化 */
 extern void * hp_alloc(hcb_t * hcb, uint32_t size);			/* 内存分配（阻塞方式） */
+extern void * hp_alloc_align(hcb_t * hcb, uint32_t ** unaligned_addr, uint32_t align_size, int n);/* 按对齐方式分配（阻塞方式） */
 extern void * hp_calloc( hcb_t * hcb, uint32_t size );
 extern void hp_free( hcb_t * hcb, void * fst_addr );		/* 内存释放（阻塞方式） */
 extern EL_RESULT_T hp_StatisticsTake( hcb_t * hcb, uint32_t *heap_size, uint32_t * start_addr,

@@ -55,6 +55,7 @@ extern avl_node_t * avl_node_add(avl_node_t * node, avl_t * tree);
 extern avl_node_t * g_avl_node_add(void * node_cont, avl_t * tree);
 extern avl_node_t * avl_node_delete(avl_node_t * node,avl_t * tree);
 extern avl_node_t * avl_node_search(avl_node_t * node, avl_t * tree);
+extern avl_node_t * g_avl_node_search(void * node_cont, avl_t * tree);
 extern void avl_subtree_print(avl_node_t *root);
 extern void avl_tree_print(avl_t * tree);
 #endif
